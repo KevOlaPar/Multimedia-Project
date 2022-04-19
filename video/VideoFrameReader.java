@@ -8,11 +8,15 @@ import java.awt.*;
 import java.awt.image.*;
 import javax.swing.*;
 
+/*
+ * The VideoFrameReader class provides methods for sequential reads from a video(.rgb) file, by calling nextFrame()
+ * You can jump to specific frame index and start sequential reading from that index by calling setFrameIndex(int index)
+ */
 public class VideoFrameReader {
 	
 	private RandomAccessFile videoFile;
 	private long fileLength;
-	private long currentFrameIndex;
+	private int currentFrameIndex;
 	
 	public BufferedImage img;
 	
@@ -37,6 +41,7 @@ public class VideoFrameReader {
 	
 	/*
 	 *  read the next frame from file
+	 *  
 	 *  @return returns a Frame, or null if there are no more frames to read
 	 */
 	public Frame nextFrame() {
@@ -107,9 +112,10 @@ public class VideoFrameReader {
 	
 	/*
 	 * set the frame index to a specific position
+	 * 
 	 * @param: the frame index for next frame read
 	 */
-	public void setFrameIndex(long index) {
+	public void setFrameIndex(int index) {
 		try {
 			
 			// index * frame_size
