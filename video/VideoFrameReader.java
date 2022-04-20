@@ -36,6 +36,8 @@ public class VideoFrameReader {
 			System.out.println("Error: cannot get length of the video file");
 			ioe.printStackTrace();
 		}
+		
+//		img = new BufferedImage(Frame.FRAME_WIDTH, Frame.FRAME_HEIGHT, BufferedImage.TYPE_INT_RGB);
 	}
 	
 	
@@ -76,8 +78,8 @@ public class VideoFrameReader {
 					blue[x][y] = (b & 0xff);
 					
 					// for testing purpose
-					int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-					img.setRGB(x,y,pix);
+//					int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+//					img.setRGB(x,y,pix);
 					
 					ind++;
 				}

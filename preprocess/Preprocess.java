@@ -3,6 +3,7 @@ package preprocess;
 import java.util.ArrayList;
 import java.util.List;
 
+import utils.Utils;
 import video.Frame;
 import video.VideoFrameReader;
 
@@ -14,19 +15,22 @@ import video.VideoFrameReader;
 public class Preprocess {
 	
 	private String inputRgbFile, inputWavFile, outputRgbFile, outputWavFile;
-	private int ad;
+	private int adNum; // 0 for no ad, 1 for starbucks, etc...
+	public List<double[][]> errorFrameList;
 	
 	public Preprocess(String inputRgb, String inputWav, String outputRgb, String outputWav) {
 		inputRgbFile = inputRgb;
 		inputWavFile = inputWav;
 		outputRgbFile = outputRgb;
 		outputWavFile = outputWav;
+		
+		errorFrameList = new ArrayList<>();
 	}
 	
 	/*
 	 * Find shot boundaries by calculating the entropy of difference frames
 	 * 
-	 * @return	List<Integer>	a list contains the starting frame index for each shot
+	 * @return	List<Integer>	a list containing the starting frame index for each shot
 	 */
 	public List<Integer> findShotBoundaries(){
 		
@@ -36,17 +40,20 @@ public class Preprocess {
 		VideoFrameReader frameReader = new VideoFrameReader(inputRgbFile);
 		Frame prev = frameReader.nextFrame();
 		Frame cur = null;
+		int count = 0;
 		while(true) {
 			cur = frameReader.nextFrame();
-			if(cur == null) {
+			if(cur == null || count == 900) {
 				break;
 			}
 			double[][] prevY = prev.getYChannel();
 			double[][] curY = cur.getYChannel();
 			
-			//need to do frame differencing with motion compensation
-			double[][] differenceFrame = getDifferenceFrame(prevY, curY);
-			double entropy = getEntropy(differenceFrame);
+			//do frame differencing with motion compensation
+			double[][] compensatedErrorFrame = MotionCompensation.getMotionCompensatedErrorFrame(prevY, curY);
+			if(count % 30 == 0)
+				errorFrameList.add(compensatedErrorFrame);
+			count ++;
 		}
 		
 		
@@ -54,26 +61,7 @@ public class Preprocess {
 	}
 	
 	
-	/*
-	 * 
-	 */
-	private double[][] getDifferenceFrame(double[][] prev, double[][] cur){
-		
-		double[][] diff = new double[Frame.FRAME_WIDTH][Frame.FRAME_HEIGHT];
-		
-		for(int row=0; row<diff.length; row++) {
-			for(int col=0; col<diff[0].length; col++) {
-				diff[row][col] = Math.abs(prev[row][col] - cur[row][col]);
-			}
-		}
-		
-		return diff;
-	}
 	
-	
-	private double getEntropy(double[][] diff) {
-		return 0;
-	}
 
 	/*
 	 *  args[0] = input rgb file
@@ -84,6 +72,12 @@ public class Preprocess {
 	public static void main(String[] args) {
 		
 		Preprocess processor = new Preprocess(args[0], args[1], args[2], args[3]);
+		System.out.println(args[0] + "\n" + args[1]);
+		processor.findShotBoundaries();
+//		for(double[][] frame : processor.errorFrameList) {
+//			Utils.writeChannelToDisk("C:\\Users\\Kevin Yu\\Desktop", frame);
+//		}
+		Utils.displayErrorFrame(processor.errorFrameList.get(1));
 		
 	}
 
