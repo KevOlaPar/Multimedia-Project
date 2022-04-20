@@ -9,7 +9,7 @@ import java.util.Scanner;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
-public class Sound {
+public class Sound implements Runnable {
   String filePath;
   Clip clip;
   String status;
@@ -24,6 +24,9 @@ public class Sound {
     clip.loop(Clip.LOOP_CONTINUOUSLY);
   }
 
+  public void run() {
+    play();
+  }
   public void play() {
     clip.start();
     status = "play";

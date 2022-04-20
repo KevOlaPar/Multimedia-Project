@@ -1,3 +1,4 @@
+package media_player;
 import java.awt.image.BufferedImage;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
