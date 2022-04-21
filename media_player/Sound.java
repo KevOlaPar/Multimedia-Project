@@ -27,6 +27,7 @@ public class Sound implements Runnable {
   public void run() {
     play();
   }
+
   public void play() {
     clip.start();
     status = "play";
