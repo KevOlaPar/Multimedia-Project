@@ -12,7 +12,8 @@ import video.Frame;
 public class MotionCompensation {
 	
 	public static final int MACROBLOCK_WIDTH = 15; // width == height
-	public static final int SEARCH_PARAM = 15;
+	public static final int SEARCH_PARAM = 15; // search parameter k
+	public static final double ENTROPY_THRESHOLD = 50.0; // hard-coded threshold for deciding shot boundaries
 	
 	public static double[][] getMotionCompensatedErrorFrame(double[][] referenceFrame, double[][] targetFrame){
 		
@@ -101,5 +102,19 @@ public class MotionCompensation {
 		mad /= MACROBLOCK_WIDTH * MACROBLOCK_WIDTH;
 		
 		return mad;
+	}
+
+	/*
+	 * Calculate entropy of the error/difference frame,
+	 * using average error per pixel
+	 */
+	public static double getEntropy(double[][] errorFrame){
+		double sum = 0;
+		for(int row = 0; row < Frame.FRAME_WIDTH; row++){
+			for(int col = 0; col < Frame.FRAME_HEIGHT; col++){
+				sum += Math.abs(errorFrame[row][col])/(Frame.FRAME_WIDTH * Frame.FRAME_HEIGHT);
+			}
+		}
+		return sum;
 	}
 }
