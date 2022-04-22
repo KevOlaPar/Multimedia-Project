@@ -1,5 +1,7 @@
 package video;
 
+import java.awt.image.BufferedImage;
+
 /*
  * the Frame class contains RGB values for a single frame, and operations to convert RGB to YUV
  */
@@ -82,6 +84,17 @@ public class Frame {
 		}
 		
 		return V;
+	}
+
+	public BufferedImage toBufferedImage() {
+		BufferedImage image = new BufferedImage(FRAME_WIDTH, FRAME_HEIGHT, BufferedImage.TYPE_INT_RGB);
+		for (int i = 0; i < FRAME_HEIGHT; i++) {
+			for (int j = 0; j < FRAME_WIDTH; j++) {
+				int pix = 0xff000000 | (((int)red[i][j] & 0xff) << 16) | (((int)green[i][j] & 0xff) << 8) | ((int)blue[i][j] & 0xff);
+				image.setRGB(i, j, pix);
+			}
+		}
+		return image;
 	}
 	
 	/*

@@ -72,36 +72,39 @@ public class Detector {
     }
 
     private Pair<BufferedImage, Pair<String, String>> detectLogo() {
-        Pair<BufferedImage, Pair<String, String>> detectedImage = null;
-        int maxConfirmation = 0;
-        for(Pair<BufferedImage, Pair<String, String>> p: logos) {
-            BufferedImage logo = (BufferedImage) p.first;
-            int confirmation = 0;
-            int totalFrames = videoReader.getTotalNumberOfFrames();
-            int i = 0;
-            while (i < totalFrames) {
-                videoReader.setFrameIndex(i);
-                Frame frame = videoReader.nextFrame();
-                if(isLogoPresent(frame, logo)) {
-                    confirmation++;
+        int totalFrames = videoReader.getTotalNumberOfFrames();
+        int i = 0;
+        int[] counts = new int[logos.size()];
+        while (i < totalFrames) {
+            videoReader.setFrameIndex(i);
+            Frame frame = videoReader.nextFrame();
+            for (int j = 0; j < logos.size(); j++) {
+                BufferedImage logo = logos.get(j).first;
+                if (isLogoPresent(frame, logo)) {
+                    counts[j]++;
                 }
-                i+=3;
-            }
-
-            if(confirmation > 0 && maxConfirmation < confirmation) {
-                detectedImage = p;
-                maxConfirmation = confirmation;
+                i += 3;
             }
         }
+
+        Pair<BufferedImage, Pair<String, String>> detectedImage = null;
+        int maxConfirmation = 0;
+        for (int j = 0; j < logos.size(); j++) {
+            if(counts[j] > 0 && maxConfirmation < counts[j]) {
+                detectedImage = logos.get(j);
+                maxConfirmation = counts[j];
+            }
+        }
+
         return detectedImage;
     }
 
     private boolean isLogoPresent(Frame f, BufferedImage logo) {
-        return false;
+        return ImageProcessor.isImagePresent(f.toBufferedImage(), logo);
     }
 
-    private Border segmentImage(Frame f, BufferedImage img) {
-        return null;
+    private Border segmentImage(Frame f, BufferedImage logo) {
+        return ImageProcessor.getBoundary(f.toBufferedImage(), logo);
     }
 
 }
