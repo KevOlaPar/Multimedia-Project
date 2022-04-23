@@ -91,7 +91,7 @@ public class Preprocess {
 	public static void main(String[] args) {
 		
 		Preprocess processor = new Preprocess(args[0], args[1], args[2], args[3]);
-		System.out.println(args[0] + "\n" + args[1]);
+
 		List<Integer> shotBoundaries = processor.findShotBoundaries();
 //		for(double[][] frame : processor.errorFrameList) {
 //			Utils.writeChannelToDisk("C:\\Users\\Kevin Yu\\Desktop", frame);
