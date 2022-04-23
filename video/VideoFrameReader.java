@@ -96,7 +96,11 @@ public class VideoFrameReader {
 		
 		return frame;
 	}
-	
+
+	public int getCurrentFrameIndex() {
+		return currentFrameIndex;
+	}
+
 	// remember to close file every time to avoid memory leak
 	public void closeFile() {
 		try {
