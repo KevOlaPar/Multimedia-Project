@@ -9,14 +9,14 @@ import java.util.Scanner;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
-public class Sound implements Runnable {
+public class SoundReader implements Runnable {
   String filePath;
   Clip clip;
   String status;
   AudioInputStream audioInputStream;
   long currentFrame;
 
-  public Sound(String filePath) throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+  public SoundReader(String filePath) throws UnsupportedAudioFileException, IOException, LineUnavailableException {
     this.filePath = filePath;
     audioInputStream = AudioSystem.getAudioInputStream(new File(filePath).getAbsoluteFile());
     clip = AudioSystem.getClip();
@@ -34,7 +34,7 @@ public class Sound implements Runnable {
   }
 
   public void pause() {
-    if (status.equals(("paused"))) {
+    if (status.equals("paused")){
       System.out.println("Already paused...");
       return;
     }

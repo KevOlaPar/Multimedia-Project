@@ -1,9 +1,7 @@
 package video;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-
 import java.awt.*;
 import java.awt.image.*;
 import javax.swing.*;
@@ -24,11 +22,9 @@ public class VideoFrameReader {
 	public VideoFrameReader(String filename) {
 		
 		try {
-			
 			videoFile = new RandomAccessFile(filename, "r");
 			fileLength = videoFile.length();
 			currentFrameIndex = 0;
-			
 		} catch (FileNotFoundException e) {
 			System.out.println("Error: file not found");
 			e.printStackTrace();
@@ -78,8 +74,8 @@ public class VideoFrameReader {
 					blue[x][y] = (b & 0xff);
 					
 					// for testing purpose
-//					int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-//					img.setRGB(x,y,pix);
+					int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+					img.setRGB(x,y,pix);
 					
 					ind++;
 				}
@@ -146,7 +142,7 @@ public class VideoFrameReader {
 	// for testing purpose
 	public static void main(String[] args) {
 		
-		VideoFrameReader reader = new VideoFrameReader("C:\\Users\\Kevin Yu\\Downloads\\dataset-001\\dataset\\Videos\\data_test1.rgb");
+		VideoFrameReader reader = new VideoFrameReader("data/data_test1.rgb");
 		
 		reader.img = new BufferedImage(Frame.FRAME_WIDTH, Frame.FRAME_HEIGHT, BufferedImage.TYPE_INT_RGB);
 		System.out.println("Total # of Frames = " + String.valueOf(reader.getTotalNumberOfFrames()));

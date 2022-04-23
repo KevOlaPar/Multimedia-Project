@@ -9,7 +9,8 @@ public class PlaySound {
   public static void main(String[] args) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
     try
     {
-        Sound audioPlayer = new Sound(args[0]);
+        SoundReader audioPlayer = new SoundReader(args[0]);
+
           
         audioPlayer.play();
         Scanner scanner = new Scanner(System.in);

@@ -92,3 +92,6 @@ out
 *.iws
 *.iml
 atlassian-ide-plugin.xml
+
+data
+.vscode
