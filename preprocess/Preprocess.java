@@ -6,6 +6,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.sound.sampled.UnsupportedAudioFileException;
+
+import audio.AudioFrame;
+import audio.AudioFrameReader;
 import utils.Utils;
 import video.Frame;
 import video.VideoFrameReader;
@@ -16,22 +20,19 @@ import video.VideoFrameReader;
  * Divide frames into shots and scenes. 
  */
 public class Preprocess {
-	
+	public static enum Advertisement{
+		NONE, STARBUCKS, SUBWAY, MCDONALDS, NFL, AMERICAN_EAGLE, HARD_ROCK_CAFE
+	}
 	private String inputRgbFile, inputWavFile, outputRgbFile, outputWavFile;
-	private int adNum; // 0 for no ad, 1 for starbucks, etc...
-
-	//for testing
-	public List<double[][]> errorFrameList;
-	List<Double> entropyList;
+	private Advertisement detectedAd;
 	
 	public Preprocess(String inputRgb, String inputWav, String outputRgb, String outputWav) {
 		inputRgbFile = inputRgb;
 		inputWavFile = inputWav;
 		outputRgbFile = outputRgb;
 		outputWavFile = outputWav;
-		
-		errorFrameList = new ArrayList<>();
-		entropyList = new ArrayList<>();
+
+		detectedAd = Advertisement.NONE;
 	}
 	
 	/*
@@ -66,12 +67,8 @@ public class Preprocess {
 			if(entropy > MotionCompensation.ENTROPY_THRESHOLD){
 				boundaries.add(frameIndex);
 			}
-			//entropyList.add(entropy);
 
-//			if(frameIndex % 30 == 0)
-//				errorFrameList.add(compensatedErrorFrame);
 			frameIndex ++;
-
 			prev = cur;
 		}
 		
@@ -79,7 +76,67 @@ public class Preprocess {
 		return boundaries;
 	}
 	
-	
+	/*
+	 * Find audio level boundaries by thresholding audio data in chunks of 15 seconds
+	 */
+	public List<Integer> findAudioBoundaries(){
+		
+		List<Integer> boundaries = new ArrayList<>();
+		
+		try {
+			
+			AudioFrameReader audioReader = new AudioFrameReader(inputWavFile);
+			
+			List<Integer> audioLevelList = new ArrayList<>();// all audio levels in chunk size of 5 seconds of data
+	        List<Integer> bufferList = new ArrayList<>();
+	        
+	        //read audio frames and calculate their audio levels
+	        while(true){
+	            AudioFrame frame = audioReader.nextFrame();
+	            if(frame == null){
+	                break;
+	            }
+	            int level = frame.getAverageAudioLevel();
+	            bufferList.add(level);
+
+	            // combine 5 seconds of audio data
+	            if(bufferList.size() == 150){
+	                long total = 0;
+	                for(int i : bufferList){
+	                    total += i * i;
+	                }
+	                total /= 150;
+	                total = (long) Math.sqrt(total);
+	                audioLevelList.add((int) total);
+	                bufferList.clear();
+	            }
+	        }
+	        audioReader.closeFile();
+	        
+	        //thresholding the levels list
+	        //look for 3 consecutive chunks (15 seconds) of audio level that exceeds the threshold
+	        for(int i = 0; i < audioLevelList.size()-2; i++) {
+	        	int exceedCount = 0;
+	        	for(int j = 0; j < 3; j++) {
+	        		if(audioLevelList.get(i+j) > AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER) {
+	        			exceedCount++;
+	        		}
+	        	}
+	        	if(exceedCount == 3) {
+	        		boundaries.add(i * 150);
+	        		boundaries.add(i * 150 + 450);
+	        	}
+	        }
+		} catch (UnsupportedAudioFileException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return boundaries;
+	}
 	
 
 	/*
@@ -93,22 +150,14 @@ public class Preprocess {
 		Preprocess processor = new Preprocess(args[0], args[1], args[2], args[3]);
 
 		List<Integer> shotBoundaries = processor.findShotBoundaries();
-//		for(double[][] frame : processor.errorFrameList) {
-//			Utils.writeChannelToDisk("C:\\Users\\Kevin Yu\\Desktop", frame);
-//		}
-		System.out.println(shotBoundaries.toString());
-//		try {
-//			BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\Users\\Kevin Yu\\Desktop\\entropy_abs.txt"));
-//			for(double d : processor.entropyList){
-//				writer.write(String.valueOf(d));
-//				writer.write("\n");
-//			}
-//			writer.close();
-//		} catch (IOException e) {
-//			throw new RuntimeException(e);
-//		}
-//
-//		Utils.displayErrorFrame(processor.errorFrameList.get(80));
+		List<Integer> audioBoundaries = processor.findAudioBoundaries();
+		
+		System.out.println("shot boundaries: " + shotBoundaries.toString());
+		System.out.println("audio boundaries: " + audioBoundaries.toString());
+		
+		shotBoundaries.retainAll(audioBoundaries);
+		System.out.println("Intersections: " + shotBoundaries.toString());
+
 	}
 
 }

@@ -14,6 +14,8 @@ public class AudioFrame {
     public static final int SAMPLES_PER_FRAME = 1600;
     public static final int BITS_PER_SAMPLE = 16;
     public static final int BYTES_PER_SAMPLE = 2;
+    public static final int AUDIO_LEVEL_THRESHOLD_UPPER = 2000;
+    public static final int AUDIO_LEVEL_THRESHOLD_LOWER = 1000;
     private int frameIndex; // the frame index in terms of video frame
     private byte[] frameBytes; // size = 3200
     private int[] frameSamples; // size = 1600
