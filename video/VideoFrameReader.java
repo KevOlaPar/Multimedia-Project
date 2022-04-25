@@ -75,8 +75,8 @@ public class VideoFrameReader {
 					blue[x][y] = (b & 0xff);
 					
 					// for testing purpose
-					int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-					img.setRGB(x,y,pix);
+//					int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+//					img.setRGB(x,y,pix);
 					
 					ind++;
 				}
