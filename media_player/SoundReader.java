@@ -5,7 +5,6 @@ import javax.sound.sampled.Clip;
 import java.io.File;
 import java.io.IOException;
 import java.util.Scanner;
-
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
@@ -21,7 +20,10 @@ public class SoundReader implements Runnable {
     audioInputStream = AudioSystem.getAudioInputStream(new File(filePath).getAbsoluteFile());
     clip = AudioSystem.getClip();
     clip.open(audioInputStream);
-    clip.loop(Clip.LOOP_CONTINUOUSLY);
+  }
+
+  public boolean isPlaying() {
+    return clip.isRunning();
   }
 
   public void run() {
@@ -31,6 +33,14 @@ public class SoundReader implements Runnable {
   public void play() {
     clip.start();
     status = "play";
+  }
+
+  public int getTotalFrame() {
+    return clip.getFrameLength();
+  }
+
+  public int getCurrentFrame() {
+    return clip.getFramePosition();
   }
 
   public void pause() {
@@ -52,6 +62,11 @@ public class SoundReader implements Runnable {
     resetAudioStream();
     clip.setMicrosecondPosition(currentFrame);
     this.play();
+  }
+
+  public int getFrame() {
+    System.out.println("get frame: " + clip.getFramePosition());
+    return getCurrentFrame();
   }
 
   public void restart() throws IOException, UnsupportedAudioFileException, LineUnavailableException {
@@ -82,7 +97,6 @@ public class SoundReader implements Runnable {
   private void resetAudioStream() throws IOException, UnsupportedAudioFileException, LineUnavailableException {
     audioInputStream = AudioSystem.getAudioInputStream(new File(this.filePath).getAbsoluteFile());
     clip.open(audioInputStream);
-    clip.loop(Clip.LOOP_CONTINUOUSLY);
   }
 
   public void goToChoice(int choice) throws IOException, UnsupportedAudioFileException, LineUnavailableException {

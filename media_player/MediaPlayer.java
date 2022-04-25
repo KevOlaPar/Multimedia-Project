@@ -1,9 +1,10 @@
 package media_player;
+
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.IOException;
 import java.lang.Thread;
-
+import java.awt.image.BufferedImage;
 import javax.swing.ImageIcon;
 import javax.swing.JSlider;
 import javax.swing.JFrame;
@@ -25,18 +26,16 @@ public class MediaPlayer implements ActionListener {
   JPanel panel;
   String globalStatus;
   int currentVideoFrame;
-  Thread thread1;
-  Thread thread2;
-  Thread threadGen;
+  Thread videoThread;
+  Thread audioThread;
   Button button;
+  String videoFile;
+  String audioFile;
+  BufferedImage image = new BufferedImage(480, 270, BufferedImage.TYPE_INT_RGB);
 
   public MediaPlayer(String videoFile, String audioFile)
       throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
-    this.video = new VideoReader(videoFile, 30, 10, 480, 270);
-    //this.audio = new SoundReader(audioFile);
-    this.thread1 = new Thread(this.video);
-  //  this.thread2 = new Thread(this.audio);
-    this.threadGen = new Thread();
+    this.label = new JLabel();
     globalStatus = "start";
     currentVideoFrame = 0;
     this.slider = new JSlider(0, 100);
@@ -44,63 +43,49 @@ public class MediaPlayer implements ActionListener {
     button = new Button("start");
     button.setActionCommand("start");
     buttonConfigurations();
+    this.videoFile = videoFile;
+    this.audioFile = audioFile;
     showMedia();
   }
 
-
-  public void controlPlayer() throws InterruptedException {
-    switch (globalStatus) {
-      case "play":
-      Thread.yield();
-        play();
-      case "pause":
-        pauseVideo();
-      case "resume":
-        resumeVideo();
-      case "start":
-        initialize();
-    }
+  public void initialize() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+    this.audio = new SoundReader(audioFile);
+    this.video = new VideoReader(this.audio, label, videoFile);
+    this.audioThread = new Thread(this.audio);
+    this.videoThread = new Thread(this.video);
   }
 
-  public void initialize() throws InterruptedException {
-    video.readImageRGB(0);
-    label.setIcon(new ImageIcon(video.getImage()));
+  public void pause() {
+    audio.pause();
+    button.setActionCommand("pause");
+    button.setLabel("play");
   }
 
-
-  public void pauseVideo() {
-    currentVideoFrame = video.getCurrentFrame();
-    globalStatus = "pause";
+  public void resume()
+      throws InterruptedException, IOException, UnsupportedAudioFileException, LineUnavailableException {
+    audio.resumeAudio();
     button.setActionCommand("play");
-  }
-  
-  public void resumeVideo() throws InterruptedException {
-    play();
+    button.setLabel("pause");
   }
 
   private void moveSlider() {
-    double total = video.getTotalFrameSize() / 1.0;
-    int curr = video.getCurrentFrame();
+    double total = audio.getTotalFrame() / 1.0;
+    long curr = audio.getCurrentFrame();
     double percent = (curr / total) * 100;
     slider.setValue((int) percent);
   }
 
   public void play() throws InterruptedException {
-    globalStatus = "play";
-    for (int i = currentVideoFrame; i < video.getTotalFrameSize(); i++) {
-      video.readImageRGB(i);
-      label.setIcon(new ImageIcon(video.getImage()));
-      moveSlider();
-      Thread.sleep(33);
-      if (globalStatus.equals("pause")) {
-        break;
-      }
-    }
+    videoThread.start();
+    audioThread.start();
+    button.setActionCommand("play");
+    button.setLabel("pause");
   }
 
-public void buttonConfigurations(){
-  button.addActionListener(this);
-}
+  public void buttonConfigurations() {
+    button.addActionListener(this);
+  }
+
   private void showMedia() {
     JPanel panelButton = new JPanel();
     panelButton.add(button);
@@ -109,7 +94,7 @@ public void buttonConfigurations(){
     panel.add(slider);
     GridBagLayout gLayout = new GridBagLayout();
     frame.getContentPane().setLayout(gLayout);
-    label = new JLabel(new ImageIcon(video.image));
+    label = new JLabel(new ImageIcon(image));
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.weightx = 0.5;
@@ -133,39 +118,50 @@ public void buttonConfigurations(){
     frame.setVisible(true);
   }
 
-
-
-  public static void main(String[] args) throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
-    // new MediaPlayer(args[0], args[1]);
-    MediaPlayer player = new MediaPlayer("data/data_test1.rgb", "data/data_test1.wav");
-    player.controlPlayer();
-
-  }
   @Override
-    public void actionPerformed(ActionEvent e) {
-      System.out.println(e);
-      if (e.getActionCommand().equals("play")) {
-        pauseVideo();
-        button.setActionCommand("pause");
-        button.setLabel("pause");
-      }else if(e.getActionCommand().equals("pause")){
+  public void actionPerformed(ActionEvent e) {
+    System.out.println(e);
+    if (e.getActionCommand().equals("play")) {
+      pause();
+    } else if (e.getActionCommand().equals("pause")) {
+      try {
+        resume();
+      } catch (InterruptedException | IOException | UnsupportedAudioFileException | LineUnavailableException e1) {
+        e1.printStackTrace();
+      }
+    } else if (e.getActionCommand().equals("start")) {
+      try {
+        initialize();
+        play();
+      } catch (InterruptedException | UnsupportedAudioFileException | IOException | LineUnavailableException e1) {
+        e1.printStackTrace();
+      }
+      globalStatus = "play";
+    }
+  }
+
+  public static void main(String[] args)
+      throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
+    new MediaPlayer("data/data_test1.rgb", "data/data_test1.wav");
+  }
+
+  public class MyThread extends Thread {
+    public void run() {
+      int old = -1;
+      while (true) {
+        int videoFrame = audio.getFrame() / 1600;
+        System.out.println(videoFrame);
+        moveSlider();
         try {
-          resumeVideo();
-          button.setActionCommand("play");
-          button.setLabel("play");
-        } catch (InterruptedException e1) {
-          e1.printStackTrace();
+          if (old < videoFrame) {
+            video.readImageRGB(videoFrame);
+            old = videoFrame;
+          }
+        } catch (InterruptedException | IOException e) {
+          e.printStackTrace();
         }
-      } else if (e.getActionCommand().equals("start")) {
-        try {
-          play();
-          button.setActionCommand("play");
-          button.setLabel("play");
-        } catch (InterruptedException e1) {
-          e1.printStackTrace();
-        }
-        globalStatus = "play";
       }
     }
-}
+  }
 
+}

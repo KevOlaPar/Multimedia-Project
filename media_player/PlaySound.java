@@ -1,7 +1,6 @@
 package media_player;
 import java.io.IOException;
 import java.util.Scanner;
-
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
