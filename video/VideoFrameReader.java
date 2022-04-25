@@ -25,6 +25,7 @@ public class VideoFrameReader {
 			videoFile = new RandomAccessFile(filename, "r");
 			fileLength = videoFile.length();
 			currentFrameIndex = 0;
+			img = new BufferedImage(Frame.FRAME_WIDTH, Frame.FRAME_HEIGHT, BufferedImage.TYPE_INT_RGB);
 		} catch (FileNotFoundException e) {
 			System.out.println("Error: file not found");
 			e.printStackTrace();
@@ -95,6 +96,11 @@ public class VideoFrameReader {
 		currentFrameIndex++;
 		
 		return frame;
+	}
+
+	public Frame getFrame(int index) {
+		setFrameIndex(index);
+		return nextFrame();
 	}
 
 	public int getCurrentFrameIndex() {

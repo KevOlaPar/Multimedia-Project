@@ -10,6 +10,8 @@ import javax.swing.JSlider;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import java.awt.Button;
 
 import java.awt.GridBagConstraints;
@@ -17,7 +19,7 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class MediaPlayer implements ActionListener {
+public class MediaPlayer implements ActionListener, SoundDelegate {
   SoundReader audio;
   VideoReader video;
   JFrame frame;
@@ -31,6 +33,8 @@ public class MediaPlayer implements ActionListener {
   Button button;
   String videoFile;
   String audioFile;
+  int sliderValue = 0;
+  ChangeListener sliderChangeListener;
   BufferedImage image = new BufferedImage(480, 270, BufferedImage.TYPE_INT_RGB);
 
   public MediaPlayer(String videoFile, String audioFile)
@@ -38,7 +42,7 @@ public class MediaPlayer implements ActionListener {
     this.label = new JLabel();
     globalStatus = "start";
     currentVideoFrame = 0;
-    this.slider = new JSlider(0, 100);
+    this.slider = new JSlider(0, 9000);
     slider.setValue(0);
     button = new Button("start");
     button.setActionCommand("start");
@@ -46,11 +50,22 @@ public class MediaPlayer implements ActionListener {
     this.videoFile = videoFile;
     this.audioFile = audioFile;
     showMedia();
+    sliderChangeListener = new ChangeListener() {
+      @Override
+      public void stateChanged(ChangeEvent e) {
+        if (Math.abs(slider.getValue() - sliderValue) > 5) {
+          int videoFrameNo = slider.getValue();
+          long audioInMicro = (long) ((videoFrameNo / 30.0f) * 1000000);
+          audio.jumpTo(audioInMicro);
+        }
+      }
+    };
+
   }
 
   public void initialize() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
-    this.audio = new SoundReader(audioFile);
-    this.video = new VideoReader(this.audio, label, videoFile);
+    this.audio = new SoundReader(this, audioFile);
+    this.video = new VideoReader(label, videoFile);
     this.audioThread = new Thread(this.audio);
     this.videoThread = new Thread(this.video);
   }
@@ -59,6 +74,7 @@ public class MediaPlayer implements ActionListener {
     audio.pause();
     button.setActionCommand("pause");
     button.setLabel("play");
+    slider.removeChangeListener(sliderChangeListener);
   }
 
   public void resume()
@@ -66,6 +82,7 @@ public class MediaPlayer implements ActionListener {
     audio.resumeAudio();
     button.setActionCommand("play");
     button.setLabel("pause");
+    slider.addChangeListener(sliderChangeListener);
   }
 
   private void moveSlider() {
@@ -80,6 +97,7 @@ public class MediaPlayer implements ActionListener {
     audioThread.start();
     button.setActionCommand("play");
     button.setLabel("pause");
+    slider.addChangeListener(sliderChangeListener);
   }
 
   public void buttonConfigurations() {
@@ -142,26 +160,18 @@ public class MediaPlayer implements ActionListener {
 
   public static void main(String[] args)
       throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
-    new MediaPlayer("data/data_test1.rgb", "data/data_test1.wav");
+    MediaPlayer player = new MediaPlayer("/Users/parthivmangukiya/Downloads/dataset2/Videos/data_test2.rgb", "/Users/parthivmangukiya/Downloads/dataset2/Videos/data_test2.wav");
+    player.initialize();
   }
 
-  public class MyThread extends Thread {
-    public void run() {
-      int old = -1;
-      while (true) {
-        int videoFrame = audio.getFrame() / 1600;
-        System.out.println(videoFrame);
-        moveSlider();
-        try {
-          if (old < videoFrame) {
-            video.readImageRGB(videoFrame);
-            old = videoFrame;
-          }
-        } catch (InterruptedException | IOException e) {
-          e.printStackTrace();
-        }
-      }
+  @Override
+  public int audioFrameChanged(long audioFrameNo) {
+    int videoFrameNo = (int)((audioFrameNo/48000.0f)*30);
+    if(videoFrameNo != video.getCurrentFrame()) {
+      slider.setValue(videoFrameNo);
+      sliderValue = videoFrameNo;
     }
+    video.changeFrame(videoFrameNo);
+    return 0;
   }
-
 }

@@ -1,25 +1,30 @@
 package media_player;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
+import audio.AudioFrameReader;
+
+import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.Scanner;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
 
-public class SoundReader implements Runnable {
+interface SoundDelegate {
+  int audioFrameChanged(long frameno);
+}
+
+public class SoundReader implements Runnable, TrackerDelegate {
   String filePath;
   Clip clip;
   String status;
-  AudioInputStream audioInputStream;
-  long currentFrame;
+  AudioFrameReader audioFrameReader;
+  SoundDelegate delegate;
+  Tracker tracker;
 
-  public SoundReader(String filePath) throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+  public SoundReader(SoundDelegate delegate, String filePath) throws UnsupportedAudioFileException, IOException, LineUnavailableException {
     this.filePath = filePath;
-    audioInputStream = AudioSystem.getAudioInputStream(new File(filePath).getAbsoluteFile());
+    this.delegate = delegate;
+    this.audioFrameReader = new AudioFrameReader(filePath);
     clip = AudioSystem.getClip();
-    clip.open(audioInputStream);
+    clip.open(audioFrameReader.getAudioStream());
+    tracker = new Tracker(this);
   }
 
   public boolean isPlaying() {
@@ -31,6 +36,7 @@ public class SoundReader implements Runnable {
   }
 
   public void play() {
+    tracker.start();
     clip.start();
     status = "play";
   }
@@ -49,7 +55,6 @@ public class SoundReader implements Runnable {
       return;
     }
     status = "paused";
-    this.currentFrame = this.clip.getMicrosecondPosition();
     clip.stop();
   }
 
@@ -58,10 +63,7 @@ public class SoundReader implements Runnable {
       System.out.println("Already playing...");
       return;
     }
-    clip.close();
-    resetAudioStream();
-    clip.setMicrosecondPosition(currentFrame);
-    this.play();
+    clip.start();
   }
 
   public int getFrame() {
@@ -70,54 +72,26 @@ public class SoundReader implements Runnable {
   }
 
   public void restart() throws IOException, UnsupportedAudioFileException, LineUnavailableException {
-    clip.stop();
-    clip.close();
-    resetAudioStream();
-    currentFrame = 0L;
-    clip.setMicrosecondPosition(0);
-    this.play();
+    jumpTo(0);
   }
 
   public void stop() {
     clip.stop();
-    clip.close();
     status = "stop";
+    clip.close();
+    tracker.close();
   }
 
-  public void jumpTo(long where) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
-    if (where > 0 && where < clip.getMicrosecondLength()) {
-      clip.close();
-      currentFrame = where;
-      resetAudioStream();
-      clip.setMicrosecondPosition(currentFrame);
-      this.play();
+  public void jumpTo(long where) {
+    if (where >= 0 && where < clip.getMicrosecondLength()) {
+      clip.stop();
+      clip.setMicrosecondPosition(where);
+      clip.start();
     }
   }
 
-  private void resetAudioStream() throws IOException, UnsupportedAudioFileException, LineUnavailableException {
-    audioInputStream = AudioSystem.getAudioInputStream(new File(this.filePath).getAbsoluteFile());
-    clip.open(audioInputStream);
-  }
-
-  public void goToChoice(int choice) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
-    switch (choice) {
-      case 1:
-        pause();
-        break;
-      case 2:
-       resumeAudio();
-        break;
-      case 3:
-        restart();;
-        break;
-      case 4:
-        stop();
-        break;
-      case 5:
-        System.out.println("Enter time: " + 0 + clip.getMicrosecondLength());
-        Scanner scanner = new Scanner(System.in);
-        long where = scanner.nextLong();
-        jumpTo(where);
-    }
+  @Override
+  public void track() {
+    delegate.audioFrameChanged(clip.getFramePosition());
   }
 }

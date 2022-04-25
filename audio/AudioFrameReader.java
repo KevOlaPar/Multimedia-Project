@@ -78,6 +78,10 @@ public class AudioFrameReader {
         return (int)(fileLength/AudioFrame.BYTES_PER_FRAME);
     }
 
+    public AudioInputStream getAudioStream() {
+        return audioStream;
+    }
+
     public static void main(String[] args){
 
         //test

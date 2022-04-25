@@ -88,8 +88,8 @@ public class Frame {
 
 	public BufferedImage toBufferedImage() {
 		BufferedImage image = new BufferedImage(FRAME_WIDTH, FRAME_HEIGHT, BufferedImage.TYPE_INT_RGB);
-		for (int i = 0; i < FRAME_HEIGHT; i++) {
-			for (int j = 0; j < FRAME_WIDTH; j++) {
+		for (int i = 0; i < FRAME_WIDTH; i++) {
+			for (int j = 0; j < FRAME_HEIGHT; j++) {
 				int pix = 0xff000000 | (((int)red[i][j] & 0xff) << 16) | (((int)green[i][j] & 0xff) << 8) | ((int)blue[i][j] & 0xff);
 				image.setRGB(i, j, pix);
 			}
