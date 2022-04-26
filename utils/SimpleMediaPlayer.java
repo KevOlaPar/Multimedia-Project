@@ -90,7 +90,7 @@ public class SimpleMediaPlayer {
 		}
 
 		// Starts the music :P
-		dataLine.start();
+		datxaLine.start();
 
 		int readBytes = 0;
 		byte[] audioBuffer = new byte[AudioFrame.BYTES_PER_FRAME]; // 3200 bytes of audio corresponds to 1 video frame
@@ -121,7 +121,7 @@ public class SimpleMediaPlayer {
 	}
 	
 	public static void main(String[] args) {
-		String video = args[0], audio = args[1];
+		String video = "data/data_test1.rgb", audio = "data/data_test1.wav";
 		SimpleMediaPlayer player = new SimpleMediaPlayer(video, audio);
 		player.play();
 	}
