@@ -1,3 +1,4 @@
+package media_player2;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
