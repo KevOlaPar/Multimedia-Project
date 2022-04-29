@@ -94,7 +94,8 @@ public class SimpleMediaPlayer {
 
 		int readBytes = 0;
 		byte[] audioBuffer = new byte[AudioFrame.BYTES_PER_FRAME]; // 3200 bytes of audio corresponds to 1 video frame
-
+		int seconds = 0, count = 0;
+		
 		try {
 		    while (readBytes != -1) {
 		    	readBytes = audioStream.read(audioBuffer, 0, audioBuffer.length);
@@ -108,6 +109,13 @@ public class SimpleMediaPlayer {
 				    
 				    img = videoFrame.toBufferedImage();
 				    lbIm1.setIcon(new ImageIcon(img));
+				    
+				    count++;
+				    if(count == 30) {//print seconds after every 30 frame
+				    	count = 0;
+				    	seconds++;
+				    	System.out.println(seconds);
+				    }
 				}
 		    }
 		} catch (IOException e) {
