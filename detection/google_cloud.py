@@ -5,6 +5,7 @@ import cv2 as cv
 from google.cloud import vision
 import json
 import sys
+from PIL import Image as im
 
 class Frame:
 
@@ -84,8 +85,8 @@ class Boundry:
     def fromGoogle(cls, boundry):
         tl = (boundry.vertices[0].x, boundry.vertices[0].y)
         tr = (boundry.vertices[1].x, boundry.vertices[1].y)
-        bl = (boundry.vertices[2].x, boundry.vertices[2].y)
-        br = (boundry.vertices[3].x, boundry.vertices[3].y)
+        br = (boundry.vertices[2].x, boundry.vertices[2].y)
+        bl = (boundry.vertices[3].x, boundry.vertices[3].y)
         return cls(tl, tr, bl, br)
 
     def to_dict(b):
@@ -108,6 +109,7 @@ class Detector:
         self.logos = logos
         self.results = dict()
         self.STEPS = 5
+        self.frames = dict()
         for logo in logos:
             self.results[logo] = []
 
@@ -260,6 +262,18 @@ class Detector:
 
         return json.dumps(fj)
 
+    def fillFrames(self):
+        for results in self.results.values():
+            for r in results:
+                self.frames[r.frameNo] = r.boundry
+
+    def getFrame(self, frameNo):
+        frame = self.reader.getFrame(frameNo).rgb
+        if frameNo in self.frames:
+            b = self.frames[frameNo]
+            cv.rectangle(frame, b.tl, b.bl, (0,255,0), 2)            
+        return frame
+
 
 
 detector = Detector("/Users/parthivmangukiya/Downloads/dataset/Videos/data_test1.rgb", ["Starbucks", "Subway"])
@@ -277,5 +291,31 @@ with open("d1.txt", "w") as text_file:
 with open("d1_final.txt", "w") as text_file:
     text_file.write(detector.toFinalJson())
 
-print(detector.toJson())
-print(detector.toFinalJson())
+# print(detector.toJson())
+# print(detector.toFinalJson())
+
+def play_video(detector):
+    # window name and size
+    detector.fillFrames()
+    cv.namedWindow("video", cv.WINDOW_AUTOSIZE)
+    i=1850
+    while i < 9000:
+        # Read video capture
+        frame = detector.getFrame(i)
+        # img = im.fromarray(frame)
+        # Display each frame
+        cv.imshow("video", frame)
+        # show one frame at a time
+        key = cv.waitKey(00)
+        # Quit when 'q' is pressed
+        if key == ord('q'):
+            break
+        i+=1
+    # Exit and distroy all windows
+    cv.destroyAllWindows()
+
+play_video(detector)
+
+
+
+
