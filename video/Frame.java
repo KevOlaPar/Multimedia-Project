@@ -37,6 +37,14 @@ public class Frame {
 	public double[][] getBlueChannel(){
 		return blue;
 	}
+
+	public double[][][] getRGB() {
+		return new double[][][] {
+				getRedChannel(),
+				getGreenChannel(),
+				getBlueChannel(),
+		};
+	}
 	
 	/*
 	 * Calculate Y channel (YUV) values from RGB
