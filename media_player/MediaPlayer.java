@@ -158,12 +158,6 @@ public class MediaPlayer implements ActionListener, SoundDelegate {
     }
   }
 
-  public static void main(String[] args)
-      throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
-    MediaPlayer player = new MediaPlayer("/Users/parthivmangukiya/Downloads/dataset2/Videos/data_test2.rgb", "/Users/parthivmangukiya/Downloads/dataset2/Videos/data_test2.wav");
-    player.initialize();
-  }
-
   @Override
   public int audioFrameChanged(long audioFrameNo) {
     int videoFrameNo = (int)((audioFrameNo/48000.0f)*30);
@@ -174,4 +168,11 @@ public class MediaPlayer implements ActionListener, SoundDelegate {
     video.changeFrame(videoFrameNo);
     return 0;
   }
+
+  public static void main(String[] args)
+      throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
+    MediaPlayer player = new MediaPlayer("data/data_test1.rgb", "data/data_test1.wav");
+    player.initialize();
+  }
+
 }

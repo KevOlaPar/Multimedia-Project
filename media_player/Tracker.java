@@ -16,11 +16,6 @@ public class Tracker extends Thread {
     public void run() {
         while(!close) {
             delegate.track();
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
     }
 

@@ -1,10 +1,8 @@
 package media_player;
 import audio.AudioFrameReader;
-
 import javax.sound.sampled.*;
-import java.io.File;
 import java.io.IOException;
-import java.util.Scanner;
+
 
 interface SoundDelegate {
   int audioFrameChanged(long frameno);
