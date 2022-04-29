@@ -18,6 +18,7 @@ public class Audio {
   final int BUFFER_SIZE = 3200;
   SourceDataLine dataLine = null;
   byte[] buffer = new byte[BUFFER_SIZE];
+  int where;
 
   public Audio(String file) throws UnsupportedAudioFileException, IOException, LineUnavailableException {
     this.file = file;
@@ -52,7 +53,7 @@ public class Audio {
       return 0;
     }
 
-  public void play() throws IOException {
+    public void play() throws IOException {
     this.dataLine.start();
   }
   
