@@ -96,6 +96,10 @@ class Boundry:
         result["br"] = list(b.br)
         return result
 
+    def to_final_dict(b):
+        result = [list(b.tl), list(b.tr), list(b.bl), list(b.br)]
+        return result
+
 class Detector:
 
     def __init__(self, videoPath, logos):
@@ -249,7 +253,7 @@ class Detector:
         for logo, results in self.results.items():
             for r in results:
                 if r.frameNo not in d:
-                    d[r.frameNo] = r.boundry.to_dict()
+                    d[r.frameNo] = r.boundry.to_final_dict()
         
         d = dict(sorted(d.items()))
         fj["frames"] = d
@@ -272,6 +276,6 @@ with open("d1.txt", "w") as text_file:
 
 with open("d1_final.txt", "w") as text_file:
     text_file.write(detector.toFinalJson())
-    
+
 print(detector.toJson())
 print(detector.toFinalJson())
