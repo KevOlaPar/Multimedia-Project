@@ -30,14 +30,22 @@ class Border {
     }
 }
 
-class DetectorResult {
+class LogoResult {
     BufferedImage logo;
     String adPath;
     SortedMap<Integer, Border> borders;
 
-    public DetectorResult(BufferedImage logo, String addPath, SortedMap<Integer, Border> borders) {
+    public LogoResult(BufferedImage logo, String addPath, SortedMap<Integer, Border> borders) {
         this.logo = logo;
         this.adPath = addPath;
         this.borders = borders;
+    }
+}
+
+class DetectorResult {
+    SortedMap<Integer, LogoResult> logoResults;
+
+    public DetectorResult(SortedMap<Integer, LogoResult> logoResults) {
+        this.logoResults = logoResults;
     }
 }

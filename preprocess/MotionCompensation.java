@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import video.Frame;
+import preprocess.MotionVector;
 
 /*
  * class for calculating motion compensation between 2 consecutive frames
