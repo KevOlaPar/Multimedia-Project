@@ -20,6 +20,9 @@ public class MediaPlayer {
   static final int FRAME_HEIGHT = 270;
   static JLabel label = new JLabel();
   static JFrame frame = new JFrame();
+  static JLabel timeLabel = new JLabel();
+  int seconds = 0;
+  int videoFrameCount; 
   boolean isPlaying;
   VideoFrameReader frameReader;
   Audio audioReader;
@@ -27,6 +30,7 @@ public class MediaPlayer {
   String videoFile;
   JButton button;
   BufferedImage image = new BufferedImage(FRAME_WIDTH, FRAME_HEIGHT, BufferedImage.TYPE_3BYTE_BGR);
+
 
   public MediaPlayer(String videoFile, String audioFile)
       throws UnsupportedAudioFileException, IOException, LineUnavailableException {
@@ -68,21 +72,43 @@ public class MediaPlayer {
 
   public void play() throws IOException {
     isPlaying = true;
-    audioReader.play();
     int result = 0;
+    String time;
     while (isPlaying) {
       result = audioReader.writeFrame();
       if (result != -1) {
         image = frameReader.nextFrame().toBufferedImage();
+        videoFrameCount++;
         label.setIcon(new ImageIcon(image));
+        time = calculateTime();
+        timeLabel.setText(time);
       }
     }
   }
 
+  private String calculateTime() {
+    if(videoFrameCount == 30) {
+      videoFrameCount = 0;
+      seconds++;
+    }
+    return convertSeconds(seconds);
+  }
+
+  private String convertSeconds(int seconds) {
+    StringBuilder sb = new StringBuilder();
+    int mins = seconds / 60;
+    int sec = seconds % 60;
+    sb.append(mins);
+    sb.append(":");
+    if (sec < 10) {
+      sb.append("0");
+    }
+    sb.append(sec);
+    return sb.toString();
+  }
 
   public void pause() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
     isPlaying = false;
-    audioReader.pause();
   }
 
   private void showImage() {
@@ -92,20 +118,25 @@ public class MediaPlayer {
     frame.getContentPane().setLayout(gLayout);
     label = new JLabel(new ImageIcon(image));
     GridBagConstraints c = new GridBagConstraints();
-    c.fill = GridBagConstraints.HORIZONTAL;
+    c.fill = GridBagConstraints.BOTH;
     c.anchor = GridBagConstraints.CENTER;
-    c.ipadx = 0;
-    c.ipady = 0;
-    c.weightx = 0;
+    c.weightx = 0.5;
+    c.gridwidth = 3;
     c.gridx = 0;
     c.gridy = 0;
     frame.getContentPane().add(label, c);
-    c.fill = GridBagConstraints.HORIZONTAL;
-    c.anchor = GridBagConstraints.CENTER;
+    c.fill = GridBagConstraints.CENTER;
     c.weightx = 0.5;
+    c.gridwidth = 1;
     c.gridx = 0;
     c.gridy = 1;
     frame.getContentPane().add(panel, c);
+    c.fill = GridBagConstraints.CENTER;
+    c.weightx = 0.5;
+    c.gridx = 1;
+    c.gridy = 1;
+    c.gridwidth = 2;
+    frame.getContentPane().add(timeLabel, c);
     frame.pack();
     frame.setVisible(true);
   }

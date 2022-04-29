@@ -33,6 +33,7 @@ public class Audio {
     Info info = new Info(SourceDataLine.class, audioFormat);
     this.dataLine = (SourceDataLine) AudioSystem.getLine(info);
     this.dataLine.open(audioFormat, BUFFER_SIZE);
+    this.dataLine.start();
   }
 
 
@@ -52,9 +53,5 @@ public class Audio {
       }
       return 0;
     }
-
-    public void play() throws IOException {
-    this.dataLine.start();
-  }
   
 }
