@@ -1,4 +1,5 @@
 package media_player2;
+
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.ImageIcon;
@@ -10,80 +11,86 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
-
-
-
+import video.VideoFrameReader;
 
 public class MediaPlayer {
   static final int FRAME_WIDTH = 480;
   static final int FRAME_HEIGHT = 270;
   static JLabel label = new JLabel();
   static JFrame frame = new JFrame();
-  String status;
-  Frame frameReader;
+  boolean isPlaying;
+  VideoFrameReader frameReader;
   Audio audioReader;
   String audioFile;
   String videoFile;
   JButton button;
-  
-  public MediaPlayer(String videoFile, String audioFile) throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+  BufferedImage image = new BufferedImage(FRAME_WIDTH, FRAME_HEIGHT, BufferedImage.TYPE_3BYTE_BGR);
+
+  public MediaPlayer(String videoFile, String audioFile)
+      throws UnsupportedAudioFileException, IOException, LineUnavailableException {
     this.videoFile = videoFile;
     this.audioFile = audioFile;
     initialize();
   }
 
   private void initialize() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
-    this.frameReader = new Frame(videoFile);
+    this.frameReader = new VideoFrameReader(videoFile);
     this.audioReader = new Audio(audioFile);
-    status = "pause";
+    isPlaying = false;
     button = new JButton("play");
     button.addActionListener(new ActionListener() {
       @Override
       public void actionPerformed(ActionEvent e) {
-        if (status.equals("play")) {
-          button.setText("pause");
-          status = "pause";
+        if (isPlaying) {
+          button.setText("play");
           try {
-            audioReader.pause();
+            pause();
           } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e1) {
             e1.printStackTrace();
           }
-        } else if (status.equals("pause")) {
-          button.setText("play");
-          status = "play";
-          try {
-            play();
-          } catch (IOException e1) {
-            e1.printStackTrace();
-          }
+        } else {
+          button.setText("pause");
+          new Thread(() -> {
+            try {
+              play();
+            } catch (IOException e1) {
+              e1.printStackTrace();
+            }
+          }).start();
         }
       }
     });
     showImage();
   }
-  
+
+
   public void play() throws IOException {
-    int result;
+    isPlaying = true;
     audioReader.play();
-    while (status.equals("play")) {
+    int result = 0;
+    while (isPlaying) {
       result = audioReader.writeFrame();
-      if (result < 0) {
-        frameReader.close();
-        break;
+      if (result != -1) {
+        image = frameReader.nextFrame().toBufferedImage();
+        label.setIcon(new ImageIcon(image));
       }
-      frameReader.writeFrame();
-      label.setIcon(new ImageIcon(frameReader.getFrame()));
     }
   }
 
+
+  public void pause() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+    isPlaying = false;
+    audioReader.pause();
+  }
 
   private void showImage() {
     JPanel panel = new JPanel();
     panel.add(button);
     GridBagLayout gLayout = new GridBagLayout();
     frame.getContentPane().setLayout(gLayout);
-    label = new JLabel(new ImageIcon(frameReader.getFrame()));
+    label = new JLabel(new ImageIcon(image));
     GridBagConstraints c = new GridBagConstraints();
     c.fill = GridBagConstraints.HORIZONTAL;
     c.anchor = GridBagConstraints.CENTER;
@@ -103,12 +110,10 @@ public class MediaPlayer {
     frame.setVisible(true);
   }
 
-
   public static void main(String[] args) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
-    String videoFile = "/Users/biolajohnson/Documents/assignments/576/media player/data/data_test1.rgb";
-    String audioFile = "/Users/biolajohnson/Documents/assignments/576/media player/data/data_test1.wav";
-    MediaPlayer mediaPlayer = new MediaPlayer(videoFile, audioFile);
-    mediaPlayer.play();
+    String videoFile = args[0];
+    String audioFile = args[1];
+    new MediaPlayer(videoFile, audioFile);
   }
 
 }
