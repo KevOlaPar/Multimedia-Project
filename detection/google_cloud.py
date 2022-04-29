@@ -298,10 +298,11 @@ def play_video(detector):
     # window name and size
     detector.fillFrames()
     cv.namedWindow("video", cv.WINDOW_AUTOSIZE)
-    i=1850
+    i=5000
     while i < 9000:
         # Read video capture
         frame = detector.getFrame(i)
+        frame = cv.cvtColor(frame,cv.COLOR_RGB2BGR)
         # img = im.fromarray(frame)
         # Display each frame
         cv.imshow("video", frame)
