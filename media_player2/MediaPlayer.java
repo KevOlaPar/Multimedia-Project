@@ -111,10 +111,9 @@ public class MediaPlayer {
   }
 
   public static void main(String[] args) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
-    String videoFile = "/Users/biolajohnson/Documents/Documents - Abiola’s MacBook Pro/assignments/576/project/dataset/Videos/data_test1.rgb";
-    String audioFile = "/Users/biolajohnson/Documents/Documents - Abiola’s MacBook Pro/assignments/576/project/dataset/Videos/data_test1.wav";
-    MediaPlayer media = new MediaPlayer(videoFile, audioFile);
-    media.play();
+    String videoFile = args[0];
+    String audioFile = args[1];
+    new MediaPlayer(videoFile, audioFile);
   }
 
 }
