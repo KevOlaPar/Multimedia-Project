@@ -133,6 +133,7 @@ public class SimpleMediaPlayer {
 		frame.setVisible(true);
 	}
 
+
 	/*
 	 * call play() every time you want to start/resume the video/audio play
 	 */
