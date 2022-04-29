@@ -127,7 +127,7 @@ public class VideoFrameReader {
 		try {
 			
 			// index * frame_size
-			videoFile.seek(index * Frame.FRAME_WIDTH * Frame.FRAME_HEIGHT * 3);
+			videoFile.seek((long)index * (long)Frame.FRAME_WIDTH * (long)Frame.FRAME_HEIGHT * 3L);
 			currentFrameIndex = index;
 			
 		} catch (IOException e) {

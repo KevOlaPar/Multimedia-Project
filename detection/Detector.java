@@ -21,73 +21,104 @@ class Pair<T, U> {
     }
 }
 
-public class Detector {
-
-    List<Pair<BufferedImage, Pair<String, String>>> logos;
+class Logo {
 
     public static int LOGO_WIDTH = 480;
     public static int LOGO_HEIGHT = 270;
+
+    BufferedImage image;
+    Pair<String, String> paths;
+    double hsv[][][];
+
+    public Logo(Pair<String, String> paths) {
+        this.image = ImageReader.getImage(LOGO_WIDTH, LOGO_HEIGHT, paths.first);;
+        this.paths = paths;
+    }
+
+    public double[][][] getRGB() {
+        double rgb[][][] = new double[3][LOGO_WIDTH][LOGO_HEIGHT];
+
+        for (int i = 0; i < LOGO_WIDTH; i++) {
+            int mask = 255;
+            for (int j = 0; j < LOGO_HEIGHT; j++) {
+                int raw = image.getRGB(i, j);
+                rgb[2][i][j] = raw & mask;
+                mask <<= 8;
+                rgb[1][i][j] = raw & mask;
+                mask <<= 8;
+                rgb[0][i][j] = raw & mask;
+            }
+        }
+        return rgb;
+    }
+
+    public double[][][] getHSV() {
+        if(hsv == null) {
+            hsv = ImageProcessor.toHSV(getRGB());
+        }
+        return hsv;
+    }
+}
+
+public class Detector {
+
+    List<Logo> logos;
+
+
     VideoFrameReader videoReader;
     List<Pair<String, String>> logosPath;
 
     public Detector(List<Pair<String, String>> logosPath, VideoFrameReader videoReader) {
         this.logosPath = logosPath;
 
-        List<Pair<BufferedImage, Pair<String, String>>> logos = new ArrayList<>();
+        logos = new ArrayList<>();
 
         for(Pair p: logosPath) {
-            BufferedImage img = ImageReader.getImage(LOGO_WIDTH, LOGO_HEIGHT, (String)p.first);
-            Pair pair = new Pair<>(img, p);
-            logos.add(pair);
+            logos.add(new Logo(p));
         }
 
         this.videoReader = videoReader;
     }
 
     public DetectorResult detect() {
-        Pair<BufferedImage, Pair<String, String>> detectedImage = detectLogo();
-
-        if(detectedImage != null) {
-            SortedMap<Integer, Border> borders = segmentVideo(detectedImage.first);
-            return new DetectorResult(detectedImage.first, detectedImage.second.second, borders);
-        } else {
-            return null;
+        int totalSec = videoReader.getTotalNumberOfFrames() / 30;
+        for (int i=0;i<totalSec;i++) {
+            Logo logo = detectLogo(i);
         }
+        return null;
     }
 
-    private SortedMap<Integer, Border> segmentVideo(BufferedImage img) {
+    private SortedMap<Integer, Border> segmentVideo(Logo logo) {
         SortedMap<Integer, Border>  map = new TreeMap<>();
         int totalFrames = videoReader.getTotalNumberOfFrames();
         videoReader.setFrameIndex(0);
         Frame f = videoReader.nextFrame();
         while (f != null) {
-            if(isLogoPresent(f, img)) {
+//            if(isLogoPresent(f, logo)) {
                 int frameNo = videoReader.getCurrentFrameIndex();
-                Border border = segmentImage(f, img);
+                Border border = segmentImage(f, logo);
                 map.put(frameNo, border);
                 videoReader.nextFrame();
-            }
+//            }
         }
         return map;
     }
 
-    private Pair<BufferedImage, Pair<String, String>> detectLogo() {
-        int totalFrames = videoReader.getTotalNumberOfFrames();
-        int i = 0;
+    private Logo detectLogo(int sec) {
+        int startFrame = sec * 30;
+        int endFrame = startFrame + 30 - 1;
+        int i = startFrame;
         int[] counts = new int[logos.size()];
-        while (i < totalFrames) {
-            videoReader.setFrameIndex(i);
-            Frame frame = videoReader.nextFrame();
+        while (i <= endFrame) {
+            Frame frame = videoReader.getFrame(i);
             for (int j = 0; j < logos.size(); j++) {
-                BufferedImage logo = logos.get(j).first;
-                if (isLogoPresent(frame, logo)) {
-                    counts[j]++;
-                }
-                i += 3;
+                Logo logo = logos.get(j);
+                counts[j] += isLogoPresent(frame, logo);
+                i += 4;
             }
         }
 
-        Pair<BufferedImage, Pair<String, String>> detectedImage = null;
+        Logo detectedImage = null;
         int maxConfirmation = 0;
         for (int j = 0; j < logos.size(); j++) {
             if(counts[j] > 0 && maxConfirmation < counts[j]) {
@@ -95,16 +126,16 @@ public class Detector {
                 maxConfirmation = counts[j];
             }
         }
-
+        System.out.println("Detected Logo " + detectedImage.paths.first + " on second " + i + " with max confirmations " + maxConfirmation);
         return detectedImage;
     }
 
-    private boolean isLogoPresent(Frame f, BufferedImage logo) {
-        return ImageProcessor.isImagePresent(f.toBufferedImage(), logo);
+    private int isLogoPresent(Frame f, Logo logo) {
+        return ImageProcessor.isImagePresent(f, logo);
     }
 
-    private Border segmentImage(Frame f, BufferedImage logo) {
-        return ImageProcessor.getBoundary(f.toBufferedImage(), logo);
+    private Border segmentImage(Frame f, Logo logo) {
+        return ImageProcessor.getBoundary(f, logo);
     }
 
 }

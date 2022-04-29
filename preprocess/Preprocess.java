@@ -1,8 +1,6 @@
 package preprocess;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +8,6 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 
 import audio.AudioFrame;
 import audio.AudioFrameReader;
-import utils.Utils;
 import video.Frame;
 import video.VideoFrameReader;
 
@@ -137,7 +134,123 @@ public class Preprocess {
 		
 		return boundaries;
 	}
-	
+
+	/*
+	 * write output rgb file with replaced ads
+	 */
+	public void writeRgbFile(List<Integer> sceneBoundaries) throws IOException {
+		RandomAccessFile videoOutput = new RandomAccessFile(outputRgbFile, "rw");
+		VideoFrameReader frameReader = new VideoFrameReader(inputRgbFile);
+
+		Frame frame;
+		byte[] frameBytes = new byte[Frame.FRAME_WIDTH * Frame.FRAME_HEIGHT * 3];
+		int sceneBoundIndex = 0;
+		int sceneStart = sceneBoundaries.get(sceneBoundIndex);
+		int sceneEnd = sceneBoundaries.get(sceneBoundIndex+1);
+		while((frame = frameReader.nextFrame()) != null){
+			int frameIndex = frame.getFrameIndex();
+			//if the current frame is the start of an ad scene,
+			//write the detected ad file instead,
+			//and set frame index to the end of the ad scene.
+			if(frameIndex == sceneStart){
+				frameReader.setFrameIndex(sceneEnd);
+				//TODO: write ad file bytes into the output file
+
+				//advancing scene index
+				sceneBoundIndex += 2;
+				if(sceneBoundIndex < sceneBoundaries.size()){
+					sceneStart = sceneBoundaries.get(sceneBoundIndex);
+					sceneEnd = sceneBoundaries.get(sceneBoundIndex+1);
+				}
+				continue;
+			}
+			//write each color channel separately to the new file
+			//TODO: change some pixels to show the bounding box of the logo
+			double[][] red = frame.getRedChannel();
+			writeChannelToFile(videoOutput, red);
+			double[][] green = frame.getGreenChannel();
+			writeChannelToFile(videoOutput, green);
+			double[][] blue = frame.getBlueChannel();
+			writeChannelToFile(videoOutput, blue);
+		}
+
+		videoOutput.close();
+		frameReader.closeFile();
+	}
+
+	private void writeChannelToFile(RandomAccessFile out, double[][] channel) throws IOException {
+		byte[] bytes = new byte[Frame.FRAME_WIDTH * Frame.FRAME_HEIGHT];
+		int index = 0;
+
+		for(int y = 0; y < Frame.FRAME_HEIGHT; y++) {
+
+			for (int x = 0; x < Frame.FRAME_WIDTH; x++) {
+
+				byte b = (byte)channel[x][y];
+				bytes[index++] = b;
+			}
+		}
+		out.write(bytes);
+	}
+
+	/*
+	 * write output wav file with replaced ads
+	 */
+	public void writeWavFile(List<Integer> sceneBoundaries) throws IOException {
+		RandomAccessFile audioOutput = new RandomAccessFile(outputWavFile, "rw");
+		RandomAccessFile audioInput = new RandomAccessFile(inputWavFile, "r");
+
+		//write header
+		byte[] headerBuffer = new byte[44];
+		audioInput.read(headerBuffer);
+		audioOutput.write(headerBuffer);
+
+		byte[] audioBuffer = new byte[AudioFrame.BYTES_PER_FRAME];
+		int sceneBoundIndex = 0, frameIndex = 0;
+		int sceneStart = sceneBoundaries.get(sceneBoundIndex);
+		int sceneEnd = sceneBoundaries.get(sceneBoundIndex+1);
+		int bytesRead = 0;
+		while((bytesRead = audioInput.read(audioBuffer)) > 0){
+			//if the current frame is the start of an ad scene,
+			//write the detected ad file instead,
+			//and set frame index to the end of the ad scene.
+			if(frameIndex == sceneStart){
+				frameIndex = sceneEnd;
+				audioInput.skipBytes((sceneEnd - sceneStart) * AudioFrame.BYTES_PER_FRAME);
+				//TODO: write ad file bytes into the output file
+
+				//advancing scene index
+				sceneBoundIndex += 2;
+				if(sceneBoundIndex < sceneBoundaries.size()){
+					sceneStart = sceneBoundaries.get(sceneBoundIndex);
+					sceneEnd = sceneBoundaries.get(sceneBoundIndex+1);
+				}
+				continue;
+			}
+
+			audioOutput.write(audioBuffer, 0, bytesRead);
+			frameIndex++;
+		}
+		//changing file size section of wav header
+//		long fileSize = audioOutput.length();
+//		audioOutput.seek(4);
+//		audioOutput.write(intToByteArray((int)(fileSize-8)));
+//		audioOutput.seek(40);
+//		audioOutput.write(intToByteArray((int)(fileSize-44)));
+
+		audioInput.close();
+		audioOutput.close();
+	}
+
+	public static byte[] intToByteArray(int a)
+	{
+		byte[] ret = new byte[4];
+		ret[0] = (byte) (a & 0xFF);
+		ret[1] = (byte) ((a >> 8) & 0xFF);
+		ret[2] = (byte) ((a >> 16) & 0xFF);
+		ret[3] = (byte) ((a >> 24) & 0xFF);
+		return ret;
+	}
 
 	/*
 	 *  args[0] = input rgb file
@@ -145,7 +258,7 @@ public class Preprocess {
 	 *  args[2] = output rgb file
 	 *  args[3] = output wav file
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 		
 		Preprocess processor = new Preprocess(args[0], args[1], args[2], args[3]);
 
@@ -158,6 +271,11 @@ public class Preprocess {
 		shotBoundaries.retainAll(audioBoundaries);
 		System.out.println("Intersections: " + shotBoundaries.toString());
 
+		//ad detection
+
+		//write new files
+		processor.writeRgbFile(shotBoundaries);
+		processor.writeWavFile(shotBoundaries);
 	}
 
 }
