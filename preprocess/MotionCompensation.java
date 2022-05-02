@@ -14,7 +14,7 @@ public class MotionCompensation {
 	
 	public static final int MACROBLOCK_WIDTH = 15; // width == height
 	public static final int SEARCH_PARAM = 15; // search parameter k
-	public static final double ENTROPY_THRESHOLD = 45.0; // hard-coded threshold for deciding shot boundaries
+	public static double ENTROPY_THRESHOLD = 45.0; // hard-coded threshold for deciding shot boundaries
 	
 	public static double[][] getMotionCompensatedErrorFrame(double[][] referenceFrame, double[][] targetFrame){
 		

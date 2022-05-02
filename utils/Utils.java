@@ -18,10 +18,13 @@ import audio.AudioFrame;
 import audio.AudioFrameReader;
 import preprocess.MotionCompensation;
 import video.Frame;
+import video.Scene;
+import video.Shot;
 import video.VideoFrameReader;
 
 public class Utils {
-	
+	public static List<Integer> shotBoundaries = new ArrayList<>();
+	public static List<Shot> shots = new ArrayList<>();
 	public static void displayFrame(double[][] r, double[][] g, double[][] b) {
 		
 		BufferedImage img = new BufferedImage(Frame.FRAME_WIDTH, Frame.FRAME_HEIGHT, BufferedImage.TYPE_INT_RGB);
@@ -67,10 +70,11 @@ public class Utils {
 	public static void writeVideoErrorFrameEntropiesToDisk(String inputRgbFile, String outputPath) {
 		
 		VideoFrameReader frameReader = new VideoFrameReader(inputRgbFile);
-		
+		System.out.println("total frames video = " + frameReader.getTotalNumberOfFrames());
 		Frame prev = frameReader.nextFrame();
 		Frame cur = null;
 
+		Utils.shotBoundaries.add(0);
 		int frameIndex = 1;
 		List<Double> entropyList = new ArrayList<>();
 		
@@ -87,14 +91,19 @@ public class Utils {
 
 			//calculate entropy of the error frame, if it is larger than the threshold, mark it as a shot (starting index)
 			double entropy = MotionCompensation.getEntropy(compensatedErrorFrame);
-			
+			if(entropy > 50){//change this value according to observed entropies
+				Utils.shotBoundaries.add(frameIndex);
+			}
 			entropyList.add(entropy);
 
 			frameIndex ++;
 
 			prev = cur;
 		}
-		
+		//add the last frame
+		Utils.shotBoundaries.add(frameIndex);
+		System.out.println(shotBoundaries.toString());
+		//write entropies to file
 		try {
 			BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath));
 			double average = 0;
@@ -109,61 +118,86 @@ public class Utils {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
 	}
 	
 	/*
-	 * helper code to find audio levels in chunks of 5 seconds.
+	 * helper code to find frame by frame audio level difference.
 	 * examine the output file to find threshold.
 	 */
 	public static void writeAudioLevelsToDisk(String inputWavFile, String outputPath) throws UnsupportedAudioFileException, IOException {
 		
 		AudioFrameReader reader = new AudioFrameReader(inputWavFile);
 
-        System.out.println("file length = " + reader.getFileLength());
-        System.out.println("total frames = " + reader.getTotalNumberOfFrames());
+        System.out.println("total frames audio = " + reader.getTotalNumberOfFrames());
 
         List<Integer> audioLevelList = new ArrayList<>();
+//		AudioFrame prev = reader.nextFrame();
         List<Integer> bufferList = new ArrayList<>();
-        int  index = 0;
+
+		int boundaryIndex = 0, frameIndex = 0;
+		int left = shotBoundaries.get(boundaryIndex++);
+		int right = shotBoundaries.get(boundaryIndex);
         while(true){
-            AudioFrame frame = reader.nextFrame();
-            if(frame == null){
+			AudioFrame cur = reader.nextFrame();
+            if(cur == null){
+				shots.add(new Shot(left, right, bufferList));
                 break;
             }
-            int level = frame.getAverageAudioLevel();
-            bufferList.add(level);
-
-            // combine 5 seconds of audio data
-            if(bufferList.size() == 150){
-                long total = 0;
-                for(int i : bufferList){
-                    total += i * i;
-                }
-                total /= 150;
-                total = (long) Math.sqrt(total);
-                audioLevelList.add((int) total);
-                bufferList.clear();
-            }
-            index++;
+			if(frameIndex == right){
+				shots.add(new Shot(left, right, bufferList));
+				left = right;
+				right = shotBoundaries.get(++boundaryIndex);
+				bufferList.clear();
+			}
+			int level = cur.getAverageAudioLevel();
+			audioLevelList.add(level);
+			bufferList.add(level);
+			frameIndex++;
         }
         reader.closeFile();
-        
+
+		//System.out.println(shots.toString());
+		//scene processing
+		List<Scene> scenes = getScenes(shots);
+		System.out.println(scenes.toString());
+
         BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath));
 		for(int i=0; i<audioLevelList.size(); i++){
             int level = audioLevelList.get(i);
-            writer.write(String.valueOf(i * 150)+"-"+String.valueOf(i*150 + 149) + "\t" + String.valueOf(level) + "\n");
+            writer.write(String.valueOf(i)+ "\t" + String.valueOf(level) + "\n");
 		}
 		writer.close();
+	}
+
+	public static List<Scene> getScenes(List<Shot> shots){
+		List<Scene> scenes = new ArrayList<>();
+		List<Shot> buffer = new ArrayList<>();
+		AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 2200;
+		AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 0;
+
+		Shot prev = shots.get(0);
+		buffer.add(prev);
+		for(int i=1; i<shots.size(); i++){
+			Shot cur = shots.get(i);
+			if(prev.isAd() != cur.isAd()){//it is a scene boundary
+				scenes.add(new Scene(buffer));
+				buffer.clear();
+			}
+			buffer.add(cur);
+			prev = cur;
+		}
+		scenes.add(new Scene(buffer));
+		return scenes;
 	}
 	
 	/*
 	 * run this class before preprocessing to find where the thresholds should be 
 	 */
 	public static void main(String[] args) {
-		//Utils.writeVideoErrorFrameEntropiesToDisk("C:\\Users\\Kevin Yu\\Downloads\\dataset-001\\dataset\\Videos\\data_test1.rgb", "C:\\Users\\Kevin Yu\\Desktop\\EntropyList.txt");
+		String inputRgb = args[0], inputWav = args[1], outputRgbTxt = args[2], outputWavTxt = args[3];
+		Utils.writeVideoErrorFrameEntropiesToDisk(inputRgb, outputRgbTxt);
 		try {
-			Utils.writeAudioLevelsToDisk("C:\\Users\\Kevin Yu\\Downloads\\dataset-002\\dataset2\\Videos\\data_test2.wav", "C:\\Users\\Kevin Yu\\Desktop\\audio_levels.txt");
+			Utils.writeAudioLevelsToDisk(inputWav, outputWavTxt);
 		} catch (UnsupportedAudioFileException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
