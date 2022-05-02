@@ -51,7 +51,7 @@ public class AudioFrameReader {
         }
 
         AudioFrame frame = new AudioFrame(frameBytes, currentFrameIndex);
-
+        this.currentFrameIndex++;
         return frame;
 
     }

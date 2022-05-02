@@ -36,7 +36,7 @@ public class SimpleMediaPlayer {
 	private BufferedImage img;
 	private boolean isPlaying;
 	private int timeInSeconds = 0;
-	private int frameCount; //counts how many frames has passed. resets every 30 frames, to track time.
+	private int frameCount = 0; //counts how many frames has passed. resets every 30 frames, to track time.
 	private SourceDataLine dataLine;
 	
 	public SimpleMediaPlayer(String videoFile, String audioFile) {
@@ -141,7 +141,6 @@ public class SimpleMediaPlayer {
 
 		int readBytes = 0;
 		byte[] audioBuffer = new byte[AudioFrame.BYTES_PER_FRAME]; // 3200 bytes of audio corresponds to 1 video frame
-		frameCount = 0;
 		
 		try {
 		    while (readBytes != -1 && isPlaying) {
@@ -169,7 +168,7 @@ public class SimpleMediaPlayer {
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
-		    // plays what's left and and closes the audioChannel
+		    // plays what's left and closes the audioChannel
 		    dataLine.drain();
 		}
 	}
