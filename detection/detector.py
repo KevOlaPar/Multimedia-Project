@@ -10,7 +10,7 @@ from difflib import SequenceMatcher
 
 
 ## logos that can be detected by this program
-lgs = ["Starbucks", "Subway", "McDonald's", "NFL", "American Eagle Outfitters", "Hard Rock Cafe"]
+logos = ["Starbucks", "Subway", "McDonald's", "NFL", "American Eagle Outfitters", "Hard Rock Cafe"]
 
 class Frame:
 
@@ -108,15 +108,14 @@ class Boundry:
 
 class Detector:
 
-    def __init__(self, videoPath, l):
+    def __init__(self, videoPath, logos):
         self.reader = VideoReader(videoPath)
         self.client = vision.ImageAnnotatorClient()
-        self.logos = lgs
-        self.l = l
+        self.logos = logos
         self.results = dict()
         self.STEPS = 5
         self.frames = dict()
-        for logo in lgs:
+        for logo in logos:
             self.results[logo] = []
 
     def parseLogos(self, frameNo, logos):
@@ -277,11 +276,9 @@ class Detector:
 
         fj["logos"] = []
         
-
-        for logo in self.l:
-            if logo in self.results:
-                startFrame = self.results[logo][0].frameNo
-                fj["logos"].append({logo: startFrame})
+        for logo, results in self.results.items():
+            startFrame = results[0].frameNo
+            fj["logos"].append({logo: startFrame})
         
         d = dict()
 
@@ -330,13 +327,13 @@ class Detector:
 
 def similar(b):
     dist = []
-    for logo in lgs:
+    for logo in logos:
         dist.append(SequenceMatcher(None, logo.lower(), b.lower()).ratio()) 
     mi = 0
     for i, d in enumerate(dist):
         if d > dist[mi]:
             mi = i
-    return lgs[mi]
+    return logos[mi]
 
 parser = argparse.ArgumentParser(description='Detect Logos Boundries')
 parser.add_argument('--inputfile', '-i', help='Name of the video file', required=True)
