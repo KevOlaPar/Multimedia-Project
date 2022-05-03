@@ -10,7 +10,7 @@ from difflib import SequenceMatcher
 
 
 ## logos that can be detected by this program
-logos = ["Starbucks", "Subway", "McDonald's", "NFL"]
+logos = ["Starbucks", "Subway", "McDonald's", "NFL", "American Eagle Outfitters", "Hard Rock Cafe"]
 
 class Frame:
 
@@ -335,23 +335,11 @@ def similar(b):
             mi = i
     return logos[mi]
 
-def similar(b):
-    dist = []
-    for logo in logos:
-        dist.append(SequenceMatcher(None, logo.lower(), b.lower()).ratio()) 
-    mi = 0
-    for i, d in enumerate(dist):
-        if d > dist[mi]:
-            mi = i
-    return logos[mi]
-
 parser = argparse.ArgumentParser(description='Detect Logos Boundries')
 parser.add_argument('--inputfile', '-i', help='Name of the video file', required=True)
 parser.add_argument('--logos', '-l', help='Name of logos to be detected', nargs="+", required=True)
 
 args = parser.parse_args()
-
-
 
 l = []
 for logo in args.logos:
@@ -360,6 +348,7 @@ for logo in args.logos:
 detector = Detector(args.inputfile, l)
 
 detector.detect()
+# print(detector.findNames())
 
 # # detector.findNames()
 with open("d1_temp", "w") as text_file:
