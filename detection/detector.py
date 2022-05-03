@@ -119,10 +119,12 @@ class Detector:
             self.results[logo] = []
 
     def parseLogos(self, frameNo, logos):
-        if len(logos) > 0 and logos[0].description in self.logos:
-            name = logos[0].description
-            print(name)
-            self.results[name].append(Result.fromGoogle(frameNo, logos[0]))
+        if len(logos) > 0:
+            for logo in logos:
+                if logo.description in self.logos:
+                    name = logo.description
+                    self.results[name].append(Result.fromGoogle(frameNo, logo))
+                    break;
             
 
     def detectLogoInFrame(self, frameNo):
