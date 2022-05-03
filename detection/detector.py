@@ -1,41 +1,21 @@
-from mimetypes import init
 import os
-from telnetlib import WILL
-from tracemalloc import start
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2 as cv
-from pprint import pprint
-import scipy.ndimage as nd
+from google.cloud import vision
+import json
+import sys
+import argparse
+from difflib import SequenceMatcher
 
-class Hist:
 
-    def hist(hsv):
-        hist = cv.calcHist([hsv],[0, 1], None, [50,100], [1, 180, 0, 256])
-        hist = cv.normalize(hist, hist, alpha=0, beta=1, norm_type=cv.NORM_MINMAX)
-        return hist
-        
+## logos that can be detected by this program
+logos = ["Starbucks", "Subway", "McDonald's", "NFL"]
 
 class Frame:
 
     def __init__(self, rgb):
         self.rgb = rgb
-        self.hsv = cv.cvtColor(rgb,cv.COLOR_RGB2HSV)
-        
-        self.blocks = []
-        startw = 15
-        starth = 0
-        blockw = 150
-        blockh = 90
-        self.fact = 150*90
-
-        for i in range(3):
-            for j in range(3):
-                sh = blockh*i + starth
-                sw = blockw*j + startw
-                block = self.hsv[sh:sh+blockh,sw:sw+blockw,:]
-                self.blocks.append(block)
-        self.hist = Hist.hist(self.hsv)
 
 class VideoReader:
 
@@ -69,216 +49,330 @@ class VideoReader:
         plt.imshow(self.getFrame(frameNo).rgb)
         plt.show()
 
+class Result:
 
-class Logo:
+    def __init__(self, score, boundry, frameNo):
+        self.score = score
+        self.boundry = boundry
+        self.frameNo = frameNo
 
-    def __init__(self, path):
-        self.path = path
-        self.img = cv.imread(path)
-        self.hsv = cv.cvtColor(self.img,cv.COLOR_BGR2HSV)
-        self.hist = Hist.hist(self.hsv)
-    
-    def showLogo(self):
-        plt.imshow(cv.cvtColor(self.img, cv.COLOR_BGR2RGB))
-        plt.show()
+    @classmethod
+    def fromGoogle(cls, frameNo, logo):
+        return cls(logo.score, Boundry.fromGoogle(logo.bounding_poly), frameNo)
 
+    def to_dict(r):
+        result = dict()
+        result["score"] = r.score
+        result["boundry"] = r.boundry.to_dict()
+        result["frameNo"] = r.frameNo
+        return result
+
+    @classmethod
+    def fromDict(cls, d):
+        return cls(d["score"], Boundry.fromDict(d["boundry"]), d["frameNo"])
+
+class Boundry:
+    def __init__(self, tl, tr, bl, br):
+        self.tl = tl
+        self.tr = tr
+        self.bl = bl
+        self.br = br
+
+    @classmethod
+    def fromDict(cls, d):
+        tl = (d["tl"][0], d["tl"][1])
+        tr = (d["tr"][0], d["tr"][1])
+        bl = (d["bl"][0], d["bl"][1])
+        br = (d["br"][0], d["br"][1])
+        return cls(tl, tr, bl, br)
+
+    @classmethod
+    def fromGoogle(cls, boundry):
+        tl = (boundry.vertices[0].x, boundry.vertices[0].y)
+        tr = (boundry.vertices[1].x, boundry.vertices[1].y)
+        br = (boundry.vertices[2].x, boundry.vertices[2].y)
+        bl = (boundry.vertices[3].x, boundry.vertices[3].y)
+        return cls(tl, tr, bl, br)
+
+    def to_dict(b):
+        result = dict()
+        result["tl"] = list(b.tl)
+        result["tr"] = list(b.tr)
+        result["bl"] = list(b.bl)
+        result["br"] = list(b.br)
+        return result
+
+    def to_final_dict(b):
+        result = [list(b.tl), list(b.br)]
+        return result
 
 class Detector:
 
-    def __init__(self, videoPath, logosPath):
+    def __init__(self, videoPath, logos):
         self.reader = VideoReader(videoPath)
-        self.logos = []
-        self.imageProcessor = ImageProcessor()
-        for logoPath in logosPath:
-            self.logos.append(Logo(logoPath))
+        self.client = vision.ImageAnnotatorClient()
+        self.logos = logos
+        self.results = dict()
+        self.STEPS = 5
+        self.frames = dict()
+        for logo in logos:
+            self.results[logo] = []
 
-    def mean(self, confirmations):
-        frame = confirmations[0][1]
-        s = 0
-        for v, _, _ in confirmations:
-            s+=v
-        return (s/len(confirmations), frame)
-
-    def bestConfirmation(self, confirmations, overFrames):
-        logoslen = len(confirmations)
-        totalFrames = len(confirmations[0])
-
-        frames = totalFrames - overFrames + 1
-        bestConfirmation = [(100000000000,0) for i in range(logoslen)]
-        consConfirmations = [[ (0, 0) for _ in range(frames)] for _ in range(logoslen)]
-
-        for i in range(logoslen):
-            c = confirmations[i]
-            for j in range(frames):
-                consConfirmations[i][j] = self.mean(c[j:j+overFrames])
-                if bestConfirmation[i][0] > consConfirmations[i][j][0]:
-                    bestConfirmation[i] = consConfirmations[i][j]
-        return bestConfirmation
-
-
-    def detect(self):
-        totalSeconds = self.reader.seconds
-        skipFrames = 10
-        logoslen = len(self.logos)
-
-        confirmations = [[] for i in range(logoslen)]
-        sec = 0
-        for sec in range(totalSeconds):
-            print("start detection for sec ", sec)
-            startFrame = sec*30
-            for i in range(startFrame, startFrame + 30, skipFrames):
-                frame = self.reader.getFrame(i)
-                for j, logo in enumerate(self.logos):
-                    confirmations[j].append((self.imageProcessor.logoPresent(frame, logo), i, i//30))
-
-        pprint(confirmations)
-
-        self.bestConfirmation = self.bestConfirmation(confirmations, 10)
-        return self.bestConfirmation
+    def parseLogos(self, frameNo, logos):
+        if len(logos) > 0 and logos[0].description in self.logos:
+            name = logos[0].description
+            print(name)
+            self.results[name].append(Result.fromGoogle(frameNo, logos[0]))
             
 
+    def detectLogoInFrame(self, frameNo):
+        image = self.reader.getFrame(frameNo).rgb
+        content = cv.imencode('.jpg', image)[1].tobytes()
 
-                    
+        content = vision.Image(content=content)
 
-class ImageProcessor:
+        response = self.client.logo_detection(image=content)
+        logos = response.logo_annotations
 
-    def compareHist(self, h1, h2):
+        if response.error.message:
+            raise Exception(
+                '{}\nFor more info on error messages, check: '
+                'https://cloud.google.com/apis/design/errors'.format(
+                    response.error.message))
+
+        self.parseLogos(frameNo, logos)
+
+        return logos
+
+    def findNames(self):
+
+        names = set()
+        for frameNo in range(0,9000, 50):
+            print("finding names in ", frameNo)
+            image = self.reader.getFrame(frameNo).rgb
+            content = cv.imencode('.jpg', image)[1].tobytes()
+
+            content = vision.Image(content=content)
+
+            response = self.client.logo_detection(image=content)
+            logos = response.logo_annotations
+
+            if response.error.message:
+                raise Exception(
+                    '{}\nFor more info on error messages, check: '
+                    'https://cloud.google.com/apis/design/errors'.format(
+                        response.error.message))
+
+            if len(logos) > 0:
+                for logo in logos:
+                    names.add(logo.description)
         
-        # masked = h1 > 0
-        # print(masked)
-        # h1 = np.extract(masked, h1)
-        # h2 = np.extract(masked, h2)
+        print(names)
+
+    def detectInBetweenFrames(self, startFrame, endFrame):
+        for frame in range(startFrame+self.STEPS, endFrame, self.STEPS):
+            print("Detection in frame ", frame)
+            self.detectLogoInFrame(frame)
+
+
+    def intersect(self, intervals):
+        intervals.sort()
+        for i in range(1, len(intervals)):
+            if intervals[i][1] <= intervals[i- 1][1]:
+                return True
+        return False
+
+    def detect(self):
+        # self.detectLogoInFrame(180*30)
+        # print(self.toJson())
+
+        for frame in range(0, 9000, 30):
+            print("Detection in frame ", frame)
+            self.detectLogoInFrame(frame)
+
+        intervals = []
+        for logo, results in self.results.items():
+            results.sort(key = lambda x: x.frameNo)
+            start = results[0].frameNo
+            end = results[-1].frameNo
+            intervals.append((start, end))
+
+        if(self.intersect(intervals)):
+            sys.exit("FATAL ERROR: logos are intersecting")
         
-        # print(h1, h2)
+        self.results = dict()
+        for logo in self.logos:
+            self.results[logo] = []
 
-        test1 = cv.compareHist(h1, h2, 0)
-        test2 = cv.compareHist(h1,h2, 1)
-        test3 = cv.compareHist(h1,h2, 2)
-        test4 = cv.compareHist(h1,h2, 3)
-        print(test1, test2, test3, test4)
-        return test3
+        for interval in intervals:
+            self.detectInBetweenFrames(interval[0]-15, interval[1] + 15)
 
+        self.interpolate()
 
-    def logoPresent(self, frame, logo):
-        test1 = cv.compareHist(frame.hist,logo.hist, 0)
-        test2 = cv.compareHist(frame.hist,logo.hist, 1)
-        test3 = cv.compareHist(frame.hist,logo.hist, 2)
-        test4 = cv.compareHist(frame.hist,logo.hist, 3)
-        print(test1, test2, test3, test4)
-        # test = self.compareHist(logo.hist, frame.hist)
+    def interpolate(self):
+        for _, results in self.results.items():
+            results.sort(key = lambda x: x.frameNo)
+        
+        for _, results in self.results.items():
+            for i in range(len(results)-1):
+                if results[i+1].frameNo - results[i].frameNo <= self.STEPS:
+                    self.interpolateUtil(results, results[i+1], results[i])
+        
+        for _, results in self.results.items():
+            results.sort(key = lambda x: x.frameNo)
 
-        return test3
-
-detector = Detector("/Users/parthivmangukiya/Downloads/dataset/Videos/data_test1.rgb", ["/Users/parthivmangukiya/Downloads/dataset/Brand Images/starbucks_logo.bmp", "/Users/parthivmangukiya/Downloads/dataset/Brand Images/subway_logo.bmp"])
-# detectedLogos = detector.detect()
-# print(detectedLogos)
-
-
-# for i, c in enumerate(detectedLogos):
-#     sec = c[1]//30
-#     rows = 1
-#     cols = 3
-#     fig = plt.figure()
-#     for j in range(cols):
-#         fig.add_subplot(rows, cols, j+1)
-#         plt.imshow(detector.reader.getFrame((sec+j)*30).rgb)
-#         plt.title("logo " + str(i) + " sec " + str(sec + j))
-
-#     plt.show()
-
-
-
-
-
-
-#########################################################
-
-# fig = plt.figure()
-# plt.axis('off')
-
-# def analyseFrame(i, sec):
-    
-#     print("analysing for ", sec)
-#     fig.add_subplot(3, 3, i*3 + 1)
-#     frame = detector.reader.getFrame(sec*30)
-#     plt.imshow(frame.rgb)
-#     plt.title(sec)
-
-#     fig.add_subplot(3, 3, i*3 + 2)
-#     plt.plot(detector.logos[0].hist)
-#     plt.plot(frame.hist)
-
-#     fig.add_subplot(3, 3, i*3 + 3)
-#     plt.plot(detector.logos[1].hist)
-#     plt.plot(frame.hist)
-
-#     t1 = detector.imageProcessor.logoPresent(frame, detector.logos[0])
-#     t2 = detector.imageProcessor.logoPresent(frame, detector.logos[1])
-
-#     print(t1, t2)
-#     i+=1
-
-# analyseFrame(0, 217)
-
-# plt.show()
-
-#######################
+    def interpolateUtil(self, r, e, s):
+        framesToInsert = e.frameNo - s.frameNo - 1
+        if framesToInsert <= 0:
+            return
+        bs = s.boundry
+        be = e.boundry
+        tls = self.interpolateValues(bs.tl, be.tl, framesToInsert)
+        trs = self.interpolateValues(bs.tr, be.tr, framesToInsert)
+        bls = self.interpolateValues(bs.bl, be.bl, framesToInsert)
+        brs = self.interpolateValues(bs.br, be.br, framesToInsert)
+        for i in range(framesToInsert):
+            r.append(Result(s.score, Boundry(tls[i], trs[i], bls[i], brs[i]), s.frameNo + i + 1))
+        
+    def interpolateValues(self, s, e, values):
+        inter = values + 1
+        changex = (e[0]-s[0])/inter
+        changey = (e[1]-s[1])/inter
+        v = []
+        x = s[0]
+        y = s[1]
+        for _ in range(values):
+            x+=changex
+            y+=changey
+            v.append((int(x), int(y))) 
+        return v
 
 
-fig = plt.figure()
-plt.axis('off')
+    def toJson(self):
+        d = dict()
+        for logo in self.results:
+            d[logo] = []
+            for r in  self.results[logo]:
+                d[logo].append(r.to_dict())
+        return json.dumps(d)
 
-img = detector.logos[1].img
-hsv = detector.logos[1].hsv
+    def loadJson(self, j):
+        d = json.loads(j)
+        for logo in d:
+            self.results[logo] = []
+            for result in d[logo]:
+                self.results[logo].append(Result.fromDict(result))
 
-# hist = cv.normalize(hist, hist, alpha=0, beta=1, norm_type=cv.NORM_MINMAX)
+    def toFinalJson(self):
+        fj = dict()
 
-sec = 60
+        # Delete empty lists
+        for logo in list(self.results.keys()):
+            if len(self.results[logo]) == 0:
+                del self.results[logo]
 
-frame = detector.reader.getFrame(sec*30)
+        for logo, results in self.results.items():
+            results.sort(key = lambda x: x.frameNo)
 
-wl = (0, 0, 150)
-wh = (255, 20, 255)
-yl = (20, 0, 0)
-yh = (40, 255, 255)
+        fj["logos"] = []
+        
+        for logo, results in self.results.items():
+            startFrame = results[0].frameNo
+            fj["logos"].append({logo: startFrame})
+        
+        d = dict()
+
+        for logo, results in self.results.items():
+            for r in results:
+                if r.frameNo not in d:
+                    d[r.frameNo] = r.boundry.to_final_dict()
+        
+        d = dict(sorted(d.items()))
+        fj["frames"] = d
+
+        return json.dumps(fj)
+
+    def fillFrames(self):
+        for results in self.results.values():
+            for r in results:
+                self.frames[r.frameNo] = r.boundry
+
+    def getFrame(self, frameNo):
+        frame = self.reader.getFrame(frameNo).rgb
+        if frameNo in self.frames:
+            b = self.frames[frameNo]
+            cv.rectangle(frame, b.tl, b.bl, (0,255,0), 2)            
+        return frame
+
+    def play_video(self):
+        # window name and size
+        self.fillFrames()
+        cv.namedWindow("video", cv.WINDOW_AUTOSIZE)
+        i=0
+        while i < 9000:
+            # Read video capture
+            frame = self.getFrame(i)
+            frame = cv.cvtColor(frame,cv.COLOR_RGB2BGR)
+            # img = im.fromarray(frame)
+            # Display each frame
+            cv.imshow("video", frame)
+            # show one frame at a time
+            key = cv.waitKey(00)
+            # Quit when 'q' is pressed
+            if key == ord('q'):
+                break
+            i+=1
+        # Exit and distroy all windows
+        cv.destroyAllWindows()
+
+def similar(b):
+    dist = []
+    for logo in logos:
+        dist.append(SequenceMatcher(None, logo.lower(), b.lower()).ratio()) 
+    mi = 0
+    for i, d in enumerate(dist):
+        if d > dist[mi]:
+            mi = i
+    return logos[mi]
+
+def similar(b):
+    dist = []
+    for logo in logos:
+        dist.append(SequenceMatcher(None, logo.lower(), b.lower()).ratio()) 
+    mi = 0
+    for i, d in enumerate(dist):
+        if d > dist[mi]:
+            mi = i
+    return logos[mi]
+
+parser = argparse.ArgumentParser(description='Detect Logos Boundries')
+parser.add_argument('--inputfile', '-i', help='Name of the video file', required=True)
+parser.add_argument('--logos', '-l', help='Name of logos to be detected', nargs="+", required=True)
+
+args = parser.parse_args()
 
 
-hsvWhiteMask = cv.inRange(hsv, wl, wh)
-hsvYellowMask = cv.inRange(hsv, yl, yh) - hsvWhiteMask
-hsv = cv.bitwise_and(hsv, hsv, mask=hsvYellowMask)
-hist = cv.calcHist([hsv],[0], None, [20], [1, 180])
-whites = np.count_nonzero(hsvWhiteMask)
-hist = np.append(hist, [whites]).astype('float32')
-hist/=(270*480)
 
-fig.add_subplot(4, 3, 10)
-plt.plot(hist, 'r')
+l = []
+for logo in args.logos:
+    l.append(similar(logo))
 
-fig.add_subplot(4, 3, 11)
-plt.imshow(hsv)
+detector = Detector(args.inputfile, l)
 
-# hist = cv.normalize()
+detector.detect()
 
-for i in range(9):
-    image = frame.blocks[i]
+# # detector.findNames()
+with open("d1_temp", "w") as text_file:
+    text_file.write(detector.toJson())
 
-    hsvWhiteMask = cv.inRange(image, wl, wh)
-    hsvYellowMask = cv.inRange(image, yl, yh) - hsvWhiteMask
+with open("detector.json", "w") as text_file:
+    text_file.write(detector.toFinalJson())
 
-    whites = np.count_nonzero(hsvWhiteMask)
 
-    mask = hsvYellowMask + hsvWhiteMask
-    image = cv.bitwise_and(image, image, mask=hsvYellowMask)
-    histf = cv.calcHist([image],[0], None, [20], [1, 180])
-    histf = np.append(histf, [whites]).astype('float32')
 
-    histf /= frame.fact
-    # print(histf)
-    fig.add_subplot(4, 3, i+1)
-    i2 = cv.cvtColor(image, cv.COLOR_HSV2RGB)
-    plt.imshow(i2)
-    print(i+1, detector.imageProcessor.compareHist(hist, histf))
-    # fig.add_subplot(4, 3, i+2)
-    # plt.plot(histf, 'r')
 
-plt.show()
+
+
+
+
+
