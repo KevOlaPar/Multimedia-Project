@@ -347,7 +347,7 @@ args = parser.parse_args()
 l = []
 for logo in args.logos:
     l.append(similar(logo))
-
+args.inputfile = args.inputfile.replace("\s", " ")
 detector = Detector(args.inputfile, l)
 
 detector.detect()
