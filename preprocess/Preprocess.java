@@ -7,9 +7,6 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 
 import audio.AudioFrame;
 import audio.AudioFrameReader;
-import com.profesorfalken.jpowershell.PowerShell;
-import com.profesorfalken.jpowershell.PowerShellNotAvailableException;
-import com.profesorfalken.jpowershell.PowerShellResponse;
 import media_player2.Audio;
 import org.json.simple.JSONArray;
 import org.json.simple.parser.JSONParser;
@@ -115,7 +112,6 @@ public class Preprocess {
 	public List<Shot> getShots(List<Integer> shotBoundaries) throws UnsupportedAudioFileException, IOException {
 		AudioFrameReader reader = new AudioFrameReader(inputWavFile);
 		List<Shot> shots = new ArrayList<>();
-		System.out.println("total frames audio = " + reader.getTotalNumberOfFrames());
 
 		List<Integer> bufferList = new ArrayList<>();
 
@@ -310,6 +306,9 @@ public class Preprocess {
 		frameReader.closeFile();
 	}
 
+	/*
+	 * write a single channel frame pixel values to the output file
+	 */
 	private void writeChannelToFile(RandomAccessFile out, double[][] channel) throws IOException {
 		byte[] bytes = new byte[Frame.FRAME_WIDTH * Frame.FRAME_HEIGHT];
 		int index = 0;
@@ -400,9 +399,12 @@ public class Preprocess {
 		return ret;
 	}
 
-	public void parseJsonFile() throws IOException, ParseException {
+	/*
+	 * Read the json file from logo detection output
+	 */
+	public void parseJsonFile(String file) throws IOException, ParseException {
 
-		Object obj = new JSONParser().parse(new FileReader("detection/d1_final.txt"));
+		Object obj = new JSONParser().parse(new FileReader(file));
 		JSONObject adDetectionResult = (JSONObject)obj;
 		JSONArray logos = (JSONArray)adDetectionResult.get("logos");
 		Iterator iter = logos.iterator();
@@ -456,32 +458,69 @@ public class Preprocess {
 	 *  args[5] = upper audio level threshold
 	 *  args[6] = lower audio level threshold
 	 */
-	public static void main(String[] args) throws IOException, UnsupportedAudioFileException, ParseException {
+	public static void main(String[] args)  {
 		long timeStart = System.currentTimeMillis();
-		//TODO: run powershell command to run logo detection logo python script
-//		String command = "powershell.exe $env:GOOGLE_APPLICATION_CREDENTIALS=\"C:\\Users\\Kevin Yu\\Downloads\\neural-water-328310-961eb49399c0.json\";python detection\\google_cloud.py";
-//		Process p = Runtime.getRuntime().exec(command);
-//		System.out.println("out");
+
 		Preprocess processor = new Preprocess(args[0], args[1], args[2], args[3]);
 
-		processor.parseJsonFile();
+
 		MotionCompensation.ENTROPY_THRESHOLD = Double.parseDouble(args[4]);
 		AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = Integer.parseInt(args[5]);
 		AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = Integer.parseInt(args[6]);
 
-		List<Integer> shotBoundaries = processor.findShotBoundaries();
-		List<Shot> shots = processor.getShots(shotBoundaries);
-		List<Scene> scenes = processor.getScenesFromShots(shots);
-		System.out.println(scenes.toString());
+		//start a different process running python script for logo detection
+		ProcessBuilder pb = new ProcessBuilder();
+		pb.environment().put("GOOGLE_APPLICATION_CREDENTIALS", "C:\\Users\\Kevin Yu\\Downloads\\neural-water-328310-961eb49399c0.json");
+		pb.command("cmd.exe", "/c", "python D:\\Developer\\Multimedia-Project\\detection\\google_cloud.py");
+		Process proc = null;
+		try {
+			proc = pb.start();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 
-		//write new files
-		processor.writeRgbFile(scenes);
-		processor.writeWavFile(scenes);
+
+		//find shots and scenes in video and audio file
+		List<Scene> scenes = null;
+		try {
+			List<Integer> shotBoundaries = processor.findShotBoundaries();
+			List<Shot> shots = processor.getShots(shotBoundaries);
+			scenes = processor.getScenesFromShots(shots);
+			System.out.println(scenes.toString());
+		} catch (UnsupportedAudioFileException e) {
+			throw new RuntimeException(e);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} finally {
+			//kill python logo detection process if something wrong happens in other processing steps
+			proc.destroy();
+		}
+
+		//wait for detection process to finish before proceeding
+		try {
+			proc.waitFor();
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
+		try {
+			//parse te json result from logo detection
+			processor.parseJsonFile("d1_final.txt");
+			//write output files
+			processor.writeRgbFile(scenes);
+			processor.writeWavFile(scenes);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} catch (ParseException e) {
+			throw new RuntimeException(e);
+		} catch (UnsupportedAudioFileException e) {
+			throw new RuntimeException(e);
+		}
+
 
 		long timeEnd = System.currentTimeMillis();
 		long min = ((timeEnd - timeStart)/1000)/60;
 		long sec = ((timeEnd - timeStart)/1000)%60;
-		System.out.println("time elapsed = " + min + ":" + sec);
+		System.out.println("time elapsed = " + min + " minutes " + sec + " seconds.");
 	}
 
 }
