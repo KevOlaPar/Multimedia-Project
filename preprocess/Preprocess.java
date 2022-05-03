@@ -32,10 +32,10 @@ public class Preprocess {
 	String[] logoNames = {
 			"Starbucks",
 			"Subway",
-			"Mcdonalds",
+			"McDonald's",
 			"NFL",
-			"AmericanEagle",
-			"HardRockCafe"
+			"American Eagle Outfitters",
+			"Hard Rock Cafe"
 	};
 
 	
@@ -48,18 +48,18 @@ public class Preprocess {
 		adRgbFile = new HashMap<>();
 		adRgbFile.put("Starbucks", "C:\\Users\\Kevin Yu\\Downloads\\dataset-001\\dataset\\Ads\\Starbucks_Ad_15s.rgb");
 		adRgbFile.put("Subway", "C:\\Users\\Kevin Yu\\Downloads\\dataset-001\\dataset\\Ads\\Subway_Ad_15s.rgb");
-		adRgbFile.put("Mcdonalds", "C:\\Users\\Kevin Yu\\Downloads\\dataset-002\\dataset2\\Ads\\mcd_Ad_15s.rgb");
+		adRgbFile.put("McDonald's", "C:\\Users\\Kevin Yu\\Downloads\\dataset-002\\dataset2\\Ads\\mcd_Ad_15s.rgb");
 		adRgbFile.put("NFL", "C:\\Users\\Kevin Yu\\Downloads\\dataset-002\\dataset2\\Ads\\nfl_Ad_15s.rgb");
-		adRgbFile.put("AmericanEagle", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\ae_ad_15s.rgb");
-		adRgbFile.put("HardRockCafe", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\hrc_ad_15s.rgb");
+		adRgbFile.put("American Eagle Outfitters", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\ae_ad_15s.rgb");
+		adRgbFile.put("Hard Rock Cafe", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\hrc_ad_15s.rgb");
 
 		adWavFile = new HashMap<>();
 		adWavFile.put("Starbucks", "C:\\Users\\Kevin Yu\\Downloads\\dataset-001\\dataset\\Ads\\Starbucks_Ad_15s.wav");
 		adWavFile.put("Subway", "C:\\Users\\Kevin Yu\\Downloads\\dataset-001\\dataset\\Ads\\Subway_Ad_15s.wav");
-		adWavFile.put("Mcdonalds", "C:\\Users\\Kevin Yu\\Downloads\\dataset-002\\dataset2\\Ads\\mcd_Ad_15s.wav");
+		adWavFile.put("McDonald's", "C:\\Users\\Kevin Yu\\Downloads\\dataset-002\\dataset2\\Ads\\mcd_Ad_15s.wav");
 		adWavFile.put("NFL", "C:\\Users\\Kevin Yu\\Downloads\\dataset-002\\dataset2\\Ads\\nfl_Ad_15s.wav");
-		adWavFile.put("AmericanEagle", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\ae_ad_15s.wav");
-		adWavFile.put("HardRockCafe", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\hrc_ad_15s.wav");
+		adWavFile.put("American Eagle Outfitters", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\ae_ad_15s.wav");
+		adWavFile.put("Hard Rock Cafe", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\hrc_ad_15s.wav");
 
 		logoFrame = new HashMap<>();
 	}
@@ -84,6 +84,9 @@ public class Preprocess {
 			cur = frameReader.nextFrame();
 			if(cur == null) {
 				break;
+			}
+			if(frameIndex % 100 == 0){
+				System.out.println("processing motion compensation for frame #" + frameIndex);
 			}
 			double[][] prevY = prev.getYChannel();
 			double[][] curY = cur.getYChannel();
@@ -454,25 +457,49 @@ public class Preprocess {
 	 *  args[1] = input wav file
 	 *  args[2] = output rgb file
 	 *  args[3] = output wav file
-	 *  args[4] = entropy threshold for motion compensation
-	 *  args[5] = upper audio level threshold
-	 *  args[6] = lower audio level threshold
+	 *  args[4] = dataset used (1-4)
 	 */
 	public static void main(String[] args)  {
 		long timeStart = System.currentTimeMillis();
 
 		Preprocess processor = new Preprocess(args[0], args[1], args[2], args[3]);
 
+		int dataset = Integer.valueOf(args[4]);
+		String[] logos = {};
 
-		MotionCompensation.ENTROPY_THRESHOLD = Double.parseDouble(args[4]);
-		AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = Integer.parseInt(args[5]);
-		AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = Integer.parseInt(args[6]);
+		switch (dataset){
+			case 1:
+				MotionCompensation.ENTROPY_THRESHOLD = 50;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 2200;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 0;
+				logos = new String[]{"Starbucks", "Subway"};
+				break;
+			case 2:
+				MotionCompensation.ENTROPY_THRESHOLD = 45;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 7900;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 2600;
+				logos = new String[]{"McDonald's", "NFL"};
+				break;
+			case 3:
+				MotionCompensation.ENTROPY_THRESHOLD = 39;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 0;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 2900;
+				logos = new String[] {"American Eagles Outfitters", "Hard Rock Cafe"};
+				break;
+			case 4:
+				break;
+		}
+
 
 		//start a different process running python script for logo detection
+
 		ProcessBuilder pb = new ProcessBuilder();
+		pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
+		pb.redirectError(ProcessBuilder.Redirect.INHERIT);
 		pb.environment().put("GOOGLE_APPLICATION_CREDENTIALS", "C:\\Users\\Kevin Yu\\Downloads\\neural-water-328310-961eb49399c0.json");
-		pb.command("cmd.exe", "/c", "python D:\\Developer\\Multimedia-Project\\detection\\google_cloud.py");
+		pb.command("cmd.exe", "/c", "python D:\\Developer\\Multimedia-Project\\detection\\detector.py", "--inputfile", args[0].replace(" ", "\\s"), "--logos", logos[0], logos[1]);
 		Process proc = null;
+		System.out.println("Starting python process...");
 		try {
 			proc = pb.start();
 		} catch (IOException e) {
@@ -488,31 +515,35 @@ public class Preprocess {
 			scenes = processor.getScenesFromShots(shots);
 			System.out.println(scenes.toString());
 		} catch (UnsupportedAudioFileException e) {
+			proc.destroy();
 			throw new RuntimeException(e);
 		} catch (IOException e) {
+ 			proc.destroy();
 			throw new RuntimeException(e);
-		} finally {
-			//kill python logo detection process if something wrong happens in other processing steps
-			proc.destroy();
 		}
 
 		//wait for detection process to finish before proceeding
 		try {
+			System.out.println("Waiting for logo detection to complete.");
 			proc.waitFor();
+			System.out.println("Logo detection is complete.");
 		} catch (InterruptedException e) {
 			throw new RuntimeException(e);
 		}
 		try {
 			//parse te json result from logo detection
-			processor.parseJsonFile("d1_final.txt");
+			processor.parseJsonFile("D:\\Developer\\Multimedia-Project\\detector.json");
 			//write output files
 			processor.writeRgbFile(scenes);
 			processor.writeWavFile(scenes);
 		} catch (IOException e) {
+			proc.destroy();
 			throw new RuntimeException(e);
 		} catch (ParseException e) {
+			proc.destroy();
 			throw new RuntimeException(e);
 		} catch (UnsupportedAudioFileException e) {
+			proc.destroy();
 			throw new RuntimeException(e);
 		}
 
