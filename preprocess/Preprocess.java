@@ -267,7 +267,8 @@ public class Preprocess {
 					logoSeen = null;//reset the logo seen
 				}
 				//advancing scene index
-				curScene = scenes.get(sceneIndex++);
+				if(sceneIndex != scenes.size())
+					curScene = scenes.get(sceneIndex++);
 				continue;
 			}
 			// if has reached the end of a scene, start the next scene
@@ -370,7 +371,8 @@ public class Preprocess {
 				}
 
 				//advancing scene index
-				curScene = scenes.get(sceneIndex++);
+				if(sceneIndex != scenes.size())
+					curScene = scenes.get(sceneIndex++);
 				continue;
 			}
 			// if has reached the end of a scene, start the next scene
@@ -497,7 +499,7 @@ public class Preprocess {
 		pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 		pb.redirectError(ProcessBuilder.Redirect.INHERIT);
 		pb.environment().put("GOOGLE_APPLICATION_CREDENTIALS", "C:\\Users\\Kevin Yu\\Downloads\\neural-water-328310-961eb49399c0.json");
-		pb.command("cmd.exe", "/c", "python D:\\Developer\\Multimedia-Project\\detection\\detector.py", "--inputfile", args[0].replace(" ", "\\s"), "--logos", logos[0], logos[1]);
+		pb.command("cmd.exe", "/c", "python D:\\Developer\\Multimedia-Project\\detection\\detector.py", "--inputfile", args[0].replace(" ", "\\s"), "--logos", logos[0].replace(" ", "\\s"), logos[1].replace(" ", "\\s"));
 		Process proc = null;
 		System.out.println("Starting python process...");
 		try {

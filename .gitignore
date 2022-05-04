@@ -1,3 +1,6 @@
+#intermediate output files
+d1_temp
+detector.json
 # Compiled class file
 *.class
 
