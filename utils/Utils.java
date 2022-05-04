@@ -105,14 +105,14 @@ public class Utils {
 
 		//add the last frame
 		Utils.shotBoundaries.add(frameIndex);
-		List<Integer> copy = new ArrayList<>(shotBoundaries);
-		for(int i=0; i<copy.size()-1; i++){
-			int prevB = copy.get(i);
-			int curB = copy.get(i+1);
-			if(curB -  prevB < 10){
-				shotBoundaries.removeIf( v -> v == prevB);
-			}
-		}
+//		List<Integer> copy = new ArrayList<>(shotBoundaries);
+//		for(int i=0; i<copy.size()-1; i++){
+//			int prevB = copy.get(i);
+//			int curB = copy.get(i+1);
+//			if(curB -  prevB < 10){
+//				shotBoundaries.removeIf( v -> v == prevB);
+//			}
+//		}
 		System.out.println(shotBoundaries.toString());
 		//write entropies to file
 		try {
@@ -187,29 +187,43 @@ public class Utils {
 	public static List<Scene> getScenes(List<Shot> shots){
 		List<Scene> scenes = new ArrayList<>();
 		List<Shot> buffer = new ArrayList<>();
-		MotionCompensation.ENTROPY_THRESHOLD = 35;
-		AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 4000;
-		AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 3000;
 
 		Shot prev = shots.get(0);
 		buffer.add(prev);
 		for(int i=1; i<shots.size(); i++){
 			Shot cur = shots.get(i);
-			if(prev.isAd() != cur.isAd()){//it is a scene boundary
-				scenes.add(new Scene(buffer));
+			if(getPercentChange(prev, cur) > 89){//it is a scene boundary
+				Scene scene = new Scene(buffer);
+				if(scene.length() < 300 || scene.length() > 600){
+					scene.setIsAd(false);
+				}
+				scenes.add(scene);
 				buffer.clear();
 			}
 			buffer.add(cur);
 			prev = cur;
 		}
-		scenes.add(new Scene(buffer));
+		Scene scene = new Scene(buffer);
+		if(scene.length() < 300 || scene.length() > 600){
+			scene.setIsAd(false);
+		}
+		scenes.add(scene);
 		return scenes;
 	}
-	
+
+	public static double getPercentChange(Shot prev, Shot cur){
+		double level1 = (double)prev.getAudioLevel();
+		double level2 = (double)cur.getAudioLevel();
+		double denom = level1 > level2 ? level2 : level1;
+		return (Math.abs(level2 - level1)/denom)*100;
+	}
 	/*
 	 * run this class before preprocessing to find where the thresholds should be 
 	 */
 	public static void main(String[] args) {
+		MotionCompensation.ENTROPY_THRESHOLD = 35;
+		AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 4000;
+		AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 3000;
 		String inputRgb = args[0], inputWav = args[1], outputRgbTxt = args[2], outputWavTxt = args[3];
 		Utils.writeVideoErrorFrameEntropiesToDisk(inputRgb, outputRgbTxt);
 		try {

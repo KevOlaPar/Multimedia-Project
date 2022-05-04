@@ -11,11 +11,13 @@ public class Shot {
     private int startIndex;
     private int endIndex;
     private int audioLevel;
+    private boolean isAd;
 
     public Shot(int start, int end, List<Integer> audioLevels){
         startIndex = start;
         endIndex = end;
         computeAudioLevel(audioLevels);
+        isAd = mightBeAd();
     }
 
     private void computeAudioLevel(List<Integer> audioLevels){
@@ -28,7 +30,7 @@ public class Shot {
         this.audioLevel = (int)total;
     }
 
-    public boolean isAd(){
+    public boolean mightBeAd(){
         if(length() > 600){// not an ad if longer than 600 frames
             return false;
         }
@@ -44,6 +46,12 @@ public class Shot {
         else{
             return this.audioLevel > AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER || this.audioLevel < AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER;
         }
+    }
+    public boolean isAd(){
+        return this.isAd;
+    }
+    public void setIsAd(boolean isAd){
+        this.isAd = isAd;
     }
     public int length(){
         return endIndex - startIndex;

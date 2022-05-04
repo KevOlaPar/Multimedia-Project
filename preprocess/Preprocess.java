@@ -29,6 +29,7 @@ public class Preprocess {
 	public static Map<String, String> adWavFile;
 	private Map<Integer, String> logoFrame; //the frame in which logo appeared
 	private JSONObject boundingBoxes;
+	private boolean usingDiff;
 	String[] logoNames = {
 			"Starbucks",
 			"Subway",
@@ -62,6 +63,7 @@ public class Preprocess {
 		adWavFile.put("Hard Rock Cafe", "C:\\Users\\Kevin Yu\\Downloads\\dataset-003\\dataset3\\Ads\\hrc_ad_15s.wav");
 
 		logoFrame = new HashMap<>();
+		usingDiff = false;
 	}
 	
 	/*
@@ -130,7 +132,11 @@ public class Preprocess {
 			if(frameIndex == right){
 				shots.add(new Shot(left, right, bufferList));
 				left = right;
-				right = shotBoundaries.get(++boundaryIndex);
+				++boundaryIndex;
+				if(boundaryIndex == shotBoundaries.size()){
+					break;
+				}
+				right = shotBoundaries.get(boundaryIndex);
 				bufferList.clear();
 			}
 			int level = cur.getAverageAudioLevel();
@@ -162,6 +168,39 @@ public class Preprocess {
 		}
 		scenes.add(new Scene(buffer));
 		return scenes;
+	}
+
+	public List<Scene> getScenesFromShots2(List<Shot> shots){
+		List<Scene> scenes = new ArrayList<>();
+		List<Shot> buffer = new ArrayList<>();
+
+		Shot prev = shots.get(0);
+		buffer.add(prev);
+		for(int i=1; i<shots.size(); i++){
+			Shot cur = shots.get(i);
+			if(getPercentChange(prev, cur) > 89){//it is a scene boundary
+				Scene scene = new Scene(buffer);
+				if(scene.length() < 300 || scene.length() > 600){
+					scene.setIsAd(false);
+				}
+				scenes.add(scene);
+				buffer.clear();
+			}
+			buffer.add(cur);
+			prev = cur;
+		}
+		Scene scene = new Scene(buffer);
+		if(scene.length() < 300 || scene.length() > 600){
+			scene.setIsAd(false);
+		}
+		scenes.add(scene);
+		return scenes;
+	}
+	public static double getPercentChange(Shot prev, Shot cur){
+		double level1 = (double)prev.getAudioLevel();
+		double level2 = (double)cur.getAudioLevel();
+		double denom = level1 > level2 ? level2 : level1;
+		return (Math.abs(level2 - level1)/denom)*100;
 	}
 	
 	/*
@@ -494,9 +533,10 @@ public class Preprocess {
 				break;
 			case 4:
 				MotionCompensation.ENTROPY_THRESHOLD = 35;
-				AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 0;
-				AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 2900;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 4000;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 3000;
 				logos = new String[] {"Subway", "Starbucks"};
+				processor.usingDiff = true;
 				break;
 		}
 
@@ -522,7 +562,10 @@ public class Preprocess {
 		try {
 			List<Integer> shotBoundaries = processor.findShotBoundaries();
 			List<Shot> shots = processor.getShots(shotBoundaries);
-			scenes = processor.getScenesFromShots(shots);
+			if(processor.usingDiff)
+				scenes = processor.getScenesFromShots2(shots);
+			else
+				scenes = processor.getScenesFromShots(shots);
 			System.out.println(scenes.toString());
 		} catch (UnsupportedAudioFileException e) {
 			proc.destroy();
