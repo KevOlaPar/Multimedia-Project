@@ -74,10 +74,6 @@ public class VideoFrameReader {
 					green[x][y] = (g & 0xff);
 					blue[x][y] = (b & 0xff);
 					
-					// for testing purpose
-//					int pix = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-//					img.setRGB(x,y,pix);
-					
 					ind++;
 				}
 			}
@@ -145,53 +141,6 @@ public class VideoFrameReader {
 		return (int)(fileLength/(Frame.FRAME_WIDTH * Frame.FRAME_HEIGHT * 3));
 	}
 	
-	// for testing purpose
-	public static void main(String[] args) {
-		
-		VideoFrameReader reader = new VideoFrameReader("data/data_test1.rgb");
-		
-		reader.img = new BufferedImage(Frame.FRAME_WIDTH, Frame.FRAME_HEIGHT, BufferedImage.TYPE_INT_RGB);
-		System.out.println("Total # of Frames = " + String.valueOf(reader.getTotalNumberOfFrames()));
-		
-		//jump to a specific starting frame index
-		reader.setFrameIndex(3000);
-		reader.nextFrame();
-		
-		JFrame frame = new JFrame();
-		GridBagLayout gLayout = new GridBagLayout();
-		frame.getContentPane().setLayout(gLayout);
 
-		JLabel lbIm1 = new JLabel(new ImageIcon(reader.img));
-
-		GridBagConstraints c = new GridBagConstraints();
-		c.fill = GridBagConstraints.HORIZONTAL;
-		c.anchor = GridBagConstraints.CENTER;
-		c.weightx = 0.5;
-		c.gridx = 0;
-		c.gridy = 0;
-
-		c.fill = GridBagConstraints.HORIZONTAL;
-		c.gridx = 0;
-		c.gridy = 1;
-		frame.getContentPane().add(lbIm1, c);
-
-		frame.pack();
-		frame.setVisible(true);
-		
-		// play the video by "count" number of frames, 30 fps.
-		int count = 0;
-		while(count < 3000) {
-			reader.nextFrame();
-			lbIm1.setIcon(new ImageIcon(reader.img));
-			count++;
-			try {
-				Thread.sleep(33);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		
-		reader.closeFile();
-	}
 
 }

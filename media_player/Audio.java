@@ -1,4 +1,4 @@
-package media_player2;
+package media_player;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
