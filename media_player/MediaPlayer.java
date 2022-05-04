@@ -2,177 +2,152 @@ package media_player;
 
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
-import java.io.IOException;
-import java.lang.Thread;
-import java.awt.image.BufferedImage;
 import javax.swing.ImageIcon;
-import javax.swing.JSlider;
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import java.awt.Button;
-
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import video.VideoFrameReader;
 
-public class MediaPlayer implements ActionListener, SoundDelegate {
-  SoundReader audio;
-  VideoReader video;
-  JFrame frame;
-  JLabel label;
-  JSlider slider;
-  JPanel panel;
-  String globalStatus;
-  int currentVideoFrame;
-  Thread videoThread;
-  Thread audioThread;
-  Button button;
-  String videoFile;
+public class MediaPlayer {
+  static final int FRAME_WIDTH = 480;
+  static final int FRAME_HEIGHT = 270;
+  static JLabel label = new JLabel();
+  static JFrame frame = new JFrame();
+  static JLabel timeLabel = new JLabel();
+  int seconds = 0;
+  int videoFrameCount; 
+  boolean isPlaying;
+  VideoFrameReader frameReader;
+  Audio audioReader;
   String audioFile;
-  int sliderValue = 0;
-  ChangeListener sliderChangeListener;
-  BufferedImage image = new BufferedImage(480, 270, BufferedImage.TYPE_INT_RGB);
+  String videoFile;
+  JButton button;
+  BufferedImage image = new BufferedImage(FRAME_WIDTH, FRAME_HEIGHT, BufferedImage.TYPE_3BYTE_BGR);
+
 
   public MediaPlayer(String videoFile, String audioFile)
-      throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
-    this.label = new JLabel();
-    globalStatus = "start";
-    currentVideoFrame = 0;
-    this.slider = new JSlider(0, 9000);
-    slider.setValue(0);
-    button = new Button("start");
-    button.setActionCommand("start");
-    buttonConfigurations();
+      throws UnsupportedAudioFileException, IOException, LineUnavailableException {
     this.videoFile = videoFile;
     this.audioFile = audioFile;
-    showMedia();
-    sliderChangeListener = new ChangeListener() {
+    initialize();
+  }
+
+  private void initialize() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+    this.frameReader = new VideoFrameReader(videoFile);
+    this.audioReader = new Audio(audioFile);
+    isPlaying = false;
+    button = new JButton("play");
+    button.addActionListener(new ActionListener() {
       @Override
-      public void stateChanged(ChangeEvent e) {
-        if (Math.abs(slider.getValue() - sliderValue) > 5) {
-          int videoFrameNo = slider.getValue();
-          long audioInMicro = (long) ((videoFrameNo / 30.0f) * 1000000);
-          audio.jumpTo(audioInMicro);
+      public void actionPerformed(ActionEvent e) {
+        if (isPlaying) {
+          button.setText("play");
+          isPlaying = false;
+        } else {
+          button.setText("pause");
+          new Thread(() -> {
+            try {
+              play();
+            } catch (IOException e1) {
+              e1.printStackTrace();
+            } catch (UnsupportedAudioFileException ex) {
+              throw new RuntimeException(ex);
+            } catch (LineUnavailableException ex) {
+              throw new RuntimeException(ex);
+            }
+          }).start();
         }
       }
-    };
-
+    });
+    showImage();
   }
 
-  public void initialize() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
-    this.audio = new SoundReader(this, audioFile);
-    this.video = new VideoReader(label, videoFile);
-    this.audioThread = new Thread(this.audio);
-    this.videoThread = new Thread(this.video);
+
+  public void play() throws IOException, UnsupportedAudioFileException, LineUnavailableException {
+    isPlaying = true;
+    int result = 0;
+    String time;
+    while (isPlaying) {
+      result = audioReader.writeFrame();
+      if (result != -1) {
+        image = frameReader.nextFrame().toBufferedImage();
+        videoFrameCount++;
+        label.setIcon(new ImageIcon(image));
+        time = calculateTime();
+        timeLabel.setText(time);
+      }
+      else{
+        isPlaying = false;
+      }
+    }
   }
 
-  public void pause() {
-    audio.pause();
-    button.setActionCommand("pause");
-    button.setLabel("play");
-    slider.removeChangeListener(sliderChangeListener);
+  private String calculateTime() {
+    if(videoFrameCount == 30) {
+      videoFrameCount = 0;
+      seconds++;
+    }
+    return convertSeconds(seconds);
   }
 
-  public void resume()
-      throws InterruptedException, IOException, UnsupportedAudioFileException, LineUnavailableException {
-    audio.resumeAudio();
-    button.setActionCommand("play");
-    button.setLabel("pause");
-    slider.addChangeListener(sliderChangeListener);
+  private String convertSeconds(int seconds) {
+    StringBuilder sb = new StringBuilder();
+    int mins = seconds / 60;
+    int sec = seconds % 60;
+    sb.append(mins);
+    sb.append(":");
+    if (sec < 10) {
+      sb.append("0");
+    }
+    sb.append(sec);
+    return sb.toString();
   }
 
-  private void moveSlider() {
-    double total = audio.getTotalFrame() / 1.0;
-    long curr = audio.getCurrentFrame();
-    double percent = (curr / total) * 100;
-    slider.setValue((int) percent);
+  public void pause() throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+    isPlaying = false;
   }
 
-  public void play() throws InterruptedException {
-    videoThread.start();
-    audioThread.start();
-    button.setActionCommand("play");
-    button.setLabel("pause");
-    slider.addChangeListener(sliderChangeListener);
-  }
-
-  public void buttonConfigurations() {
-    button.addActionListener(this);
-  }
-
-  private void showMedia() {
-    JPanel panelButton = new JPanel();
-    panelButton.add(button);
-    frame = new JFrame();
-    panel = new JPanel();
-    panel.add(slider);
+  private void showImage() {
+    JPanel panel = new JPanel();
+    panel.add(button);
     GridBagLayout gLayout = new GridBagLayout();
     frame.getContentPane().setLayout(gLayout);
     label = new JLabel(new ImageIcon(image));
     GridBagConstraints c = new GridBagConstraints();
-    c.fill = GridBagConstraints.HORIZONTAL;
+    c.fill = GridBagConstraints.BOTH;
+    c.anchor = GridBagConstraints.CENTER;
     c.weightx = 0.5;
-    c.gridx = 1;
-    c.gridy = 1;
-    frame.getContentPane().add(panel, c);
-    c.fill = GridBagConstraints.HORIZONTAL;
-    c.weightx = 0.5;
-    c.gridx = 0;
-    c.gridy = 1;
-    frame.getContentPane().add(panelButton, c);
-    c.fill = GridBagConstraints.HORIZONTAL;
-    c.ipadx = 0;
-    c.ipady = 0;
-    c.weightx = 0;
-    c.gridwidth = 2;
+    c.gridwidth = 3;
     c.gridx = 0;
     c.gridy = 0;
     frame.getContentPane().add(label, c);
+    c.fill = GridBagConstraints.CENTER;
+    c.weightx = 0.5;
+    c.gridwidth = 1;
+    c.gridx = 0;
+    c.gridy = 1;
+    frame.getContentPane().add(panel, c);
+    c.fill = GridBagConstraints.CENTER;
+    c.weightx = 0.5;
+    c.gridx = 1;
+    c.gridy = 1;
+    c.gridwidth = 2;
+    frame.getContentPane().add(timeLabel, c);
     frame.pack();
     frame.setVisible(true);
   }
 
-  @Override
-  public void actionPerformed(ActionEvent e) {
-    System.out.println(e);
-    if (e.getActionCommand().equals("play")) {
-      pause();
-    } else if (e.getActionCommand().equals("pause")) {
-      try {
-        resume();
-      } catch (InterruptedException | IOException | UnsupportedAudioFileException | LineUnavailableException e1) {
-        e1.printStackTrace();
-      }
-    } else if (e.getActionCommand().equals("start")) {
-      try {
-        initialize();
-        play();
-      } catch (InterruptedException | UnsupportedAudioFileException | IOException | LineUnavailableException e1) {
-        e1.printStackTrace();
-      }
-      globalStatus = "play";
-    }
-  }
-
-  @Override
-  public int audioFrameChanged(long audioFrameNo) {
-    int videoFrameNo = (int)((audioFrameNo/48000.0f)*30);
-    if(videoFrameNo != video.getCurrentFrame()) {
-      slider.setValue(videoFrameNo);
-      sliderValue = videoFrameNo;
-    }
-    video.changeFrame(videoFrameNo);
-    return 0;
-  }
-
-  public static void main(String[] args)
-      throws InterruptedException, UnsupportedAudioFileException, IOException, LineUnavailableException {
-    MediaPlayer player = new MediaPlayer("data/data_test1.rgb", "data/data_test1.wav");
-    player.initialize();
+  public static void main(String[] args) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
+    String videoFile = args[0];
+    String audioFile = args[1];
+    new MediaPlayer(videoFile, audioFile);
   }
 
 }
