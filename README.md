@@ -6,7 +6,7 @@ This project reads and analyzes video and audio files to perform the following: 
 * Replace the original advertisement section with a new advertisement corresponding to the logo detected.
 * Write new video and audio files with logos appeared in the frames highlighted by a bounding box,
 and original advertisements replaced by the new advertisements.
-* Play new video with video file and audio file in sync, with pause and resume functionality.
+* Play video with the new video and audio files in sync, with pause and resume functionality.
 ![](images/clip.png)
 ## Team Members
 | Name | Email                                |
