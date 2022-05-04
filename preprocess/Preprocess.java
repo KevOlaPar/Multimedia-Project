@@ -382,6 +382,10 @@ public class Preprocess {
 
 			audioOutput.write(audioBuffer, 0, bytesRead);
 			frameIndex++;
+
+			//out of bound check
+			if (frameIndex == curScene.getEndIndex() && sceneIndex == scenes.size())
+				break;
 		}
 		//changing file size section of wav header
 //		long fileSize = audioOutput.length();
@@ -489,6 +493,10 @@ public class Preprocess {
 				logos = new String[] {"American Eagles Outfitters", "Hard Rock Cafe"};
 				break;
 			case 4:
+				MotionCompensation.ENTROPY_THRESHOLD = 35;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 0;
+				AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 2900;
+				logos = new String[] {"Subway", "Starbucks"};
 				break;
 		}
 

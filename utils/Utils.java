@@ -79,6 +79,8 @@ public class Utils {
 		List<Double> entropyList = new ArrayList<>();
 		
 		while(true) {
+			if(frameIndex%100 == 0)
+				System.out.println("processing video frame #" + frameIndex);
 			cur = frameReader.nextFrame();
 			if(cur == null) {
 				break;
@@ -91,7 +93,7 @@ public class Utils {
 
 			//calculate entropy of the error frame, if it is larger than the threshold, mark it as a shot (starting index)
 			double entropy = MotionCompensation.getEntropy(compensatedErrorFrame);
-			if(entropy > 50){//change this value according to observed entropies
+			if(entropy > MotionCompensation.ENTROPY_THRESHOLD){//change this value according to observed entropies
 				Utils.shotBoundaries.add(frameIndex);
 			}
 			entropyList.add(entropy);
@@ -100,8 +102,17 @@ public class Utils {
 
 			prev = cur;
 		}
+
 		//add the last frame
 		Utils.shotBoundaries.add(frameIndex);
+		List<Integer> copy = new ArrayList<>(shotBoundaries);
+		for(int i=0; i<copy.size()-1; i++){
+			int prevB = copy.get(i);
+			int curB = copy.get(i+1);
+			if(curB -  prevB < 10){
+				shotBoundaries.removeIf( v -> v == prevB);
+			}
+		}
 		System.out.println(shotBoundaries.toString());
 		//write entropies to file
 		try {
@@ -146,7 +157,11 @@ public class Utils {
 			if(frameIndex == right){
 				shots.add(new Shot(left, right, bufferList));
 				left = right;
-				right = shotBoundaries.get(++boundaryIndex);
+				++boundaryIndex;
+				if(boundaryIndex == shotBoundaries.size()){
+					break;
+				}
+				right = shotBoundaries.get(boundaryIndex);
 				bufferList.clear();
 			}
 			int level = cur.getAverageAudioLevel();
@@ -156,7 +171,7 @@ public class Utils {
         }
         reader.closeFile();
 
-		//System.out.println(shots.toString());
+		System.out.println(shots.toString());
 		//scene processing
 		List<Scene> scenes = getScenes(shots);
 		System.out.println(scenes.toString());
@@ -172,8 +187,9 @@ public class Utils {
 	public static List<Scene> getScenes(List<Shot> shots){
 		List<Scene> scenes = new ArrayList<>();
 		List<Shot> buffer = new ArrayList<>();
-		AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 2200;
-		AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 0;
+		MotionCompensation.ENTROPY_THRESHOLD = 35;
+		AudioFrame.AUDIO_LEVEL_THRESHOLD_UPPER = 4000;
+		AudioFrame.AUDIO_LEVEL_THRESHOLD_LOWER = 3000;
 
 		Shot prev = shots.get(0);
 		buffer.add(prev);
