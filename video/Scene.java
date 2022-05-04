@@ -20,6 +20,9 @@ public class Scene {
     public boolean isAd(){
         return isAd;
     }
+    public void setIsAd(boolean isAd){
+        this.isAd = isAd;
+    }
 
     public int getStartIndex() {
         return startIndex;
